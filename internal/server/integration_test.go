@@ -135,6 +135,75 @@ func TestLoginAndAuthGating(t *testing.T) {
 	}
 }
 
+func TestChangePassword(t *testing.T) {
+	e := newTestEnv(t)
+	e.createUser(t, "alice", "password123", "user")
+	token, ctx := e.login(t, "alice", "password123")
+
+	// Wrong current password is rejected and changes nothing.
+	_, err := e.auth.ChangePassword(ctx, &quorumv1.ChangePasswordRequest{
+		OldPassword: "wrong", NewPassword: "newpassword1",
+	})
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("wrong current password: want Unauthenticated, got %v", err)
+	}
+
+	// New password must meet the length rule.
+	_, err = e.auth.ChangePassword(ctx, &quorumv1.ChangePasswordRequest{
+		OldPassword: "password123", NewPassword: "short",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("short new password: want InvalidArgument, got %v", err)
+	}
+
+	// New password must differ from the current one.
+	_, err = e.auth.ChangePassword(ctx, &quorumv1.ChangePasswordRequest{
+		OldPassword: "password123", NewPassword: "password123",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("unchanged password: want InvalidArgument, got %v", err)
+	}
+
+	// A valid change succeeds.
+	if _, err := e.auth.ChangePassword(ctx, &quorumv1.ChangePasswordRequest{
+		OldPassword: "password123", NewPassword: "newpassword1",
+	}); err != nil {
+		t.Fatalf("valid change failed: %v", err)
+	}
+
+	// The existing session is left intact: the user is not logged out of the
+	// client they changed it from.
+	if _, err := e.chat.ListChannels(ctx, &quorumv1.ListChannelsRequest{}); err != nil {
+		t.Fatalf("session should survive a self-service change, got %v", err)
+	}
+	_ = token
+
+	// The old password no longer logs in; the new one does.
+	if _, err := e.auth.Login(context.Background(), &quorumv1.LoginRequest{Username: "alice", Password: "password123"}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("old password should be rejected, got %v", err)
+	}
+	if _, err := e.auth.Login(context.Background(), &quorumv1.LoginRequest{Username: "alice", Password: "newpassword1"}); err != nil {
+		t.Fatalf("new password should log in: %v", err)
+	}
+}
+
+func TestChangePasswordRejectsBots(t *testing.T) {
+	e := newTestEnv(t)
+	botID := e.createUser(t, "dicebot", "", "bot")
+	botToken := auth.NewToken(auth.BotTokenPrefix)
+	if err := e.store.CreateBot(context.Background(), &store.Bot{
+		UserID: botID, OwnerID: botID, TokenHash: auth.HashToken(botToken),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := e.auth.ChangePassword(authedCtx(botToken), &quorumv1.ChangePasswordRequest{
+		OldPassword: "anything", NewPassword: "newpassword1",
+	})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("bot change password: want FailedPrecondition, got %v", err)
+	}
+}
+
 func TestDisabledUserRejected(t *testing.T) {
 	e := newTestEnv(t)
 	id := e.createUser(t, "bob", "password123", "user")

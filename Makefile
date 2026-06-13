@@ -19,10 +19,6 @@ build: $(CMDS)
 $(CMDS):
 	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BIN)/$@ ./cmd/$@
 
-# Install every command into $(go env GOBIN) (or $GOPATH/bin).
-install:
-	$(GO) install $(GOFLAGS) -ldflags '$(LDFLAGS)' ./cmd/...
-
 clean:
 	rm -rf $(BIN)
 

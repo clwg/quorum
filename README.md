@@ -4,71 +4,180 @@ A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
 
-## Quick start
+## Components
 
-```sh
-brew install buf            # codegen toolchain (uses remote plugins)
-make gen                    # generate gen/quorum/v1 from proto/
-make certs                  # dev self-signed CA + server cert into certs/
-go run ./cmd/quorum-server --db quorum.db --init-admin adminuser  # set a password
-make run-server             # listens on :8443 with the dev cert
+- **cmd/quorum-server** - headless CLI server. Flags: `--listen`, `--cert`,
+  `--key`, `--db`, `--init-admin <name>`, `--log-level`.
+- **cmd/quorum-client** - bubbletea chat TUI. Sidebar of channels and DMs, a
+  message viewport, an input line, a status bar with connection state and
+  E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
+  `/dm <user>`, `/passwd` (change your password), `/commands` (list bot
+  commands), `/help`, `/quit`.
+- **cmd/quorum-gui** - Fyne desktop chat client; a graphical peer of
+  quorum-client driving the same `internal/client` core.
+- **cmd/quorum-admin** - bubbletea admin TUI over the role-gated AdminService:
+  add/disable/delete users, reset passwords, create/rotate/delete bots.
+- **sdk/bot** - Go SDK for writing bots; **examples/dicebot** is a worked
+  example.
+- **cmd/quorum-gencert** - generates a dev CA and server certificate. Not for
+  production.
 
-# in other terminals:
-make run-client             # log in, /create general, chat, /dm <user>
-make run-admin              # manage users and bots
+## Quickstart
+
+This section walks you through cloning, building, and running Quorum.
+
+### Prerequisites
+
+The GUI client is built with the [Fyne](https://fyne.io) framework, which
+requires a C compiler and a system graphics driver. See the
+[Fyne Getting Started guide](https://docs.fyne.io/started/quick/) for
+platform-specific install instructions.
+
+### Clone the repository
+
+```bash
+git clone git@github.com:clwg/quorum.git
+cd quorum
 ```
 
-Bots:
+### Build the application
+
+Build every component at once:
+
+```bash
+make build
+```
+
+On MacOS the following warning can be safely ignored ```ld: warning: ignoring duplicate libraries: '-lobjc'```
+
+Or build components individually:
+
+| Component       | Command               | Output binary        |
+| --------------- | --------------------- | -------------------- |
+| Server          | `make quorum-server`  | `./bin/quorum-server` |
+| Admin client    | `make quorum-admin`   | `./bin/quorum-admin`  |
+| Terminal client | `make quorum-client`  | `./bin/quorum-client` |
+| GUI client      | `make quorum-gui`     | `./bin/quorum-gui`    |
+
+### Generate certificates
+
+Quorum uses TLS. Generate a CA and server certificate into the `certs/`
+directory:
+
+```bash
+make certs
+```
+
+### Running the application
+
+#### 1. Initialize the server and create the admin user
+
+The first time you run the server, pass `--init-admin <username>` to create the
+database and the initial admin user. You will be prompted to set a password.
+
+```bash
+./bin/quorum-server \
+  --listen :8443 \
+  --cert certs/server.pem \
+  --key certs/server-key.pem \
+  --db quorum.db \
+  --init-admin admin
+```
+
+#### 2. Start the server
+
+Once the admin user exists, start the server normally:
+
+```bash
+./bin/quorum-server \
+  --listen :8443 \
+  --cert certs/server.pem \
+  --key certs/server-key.pem \
+  --db quorum.db
+```
+
+#### 3. Launch the admin client
+
+The admin client is used for managing users and bots. Log in with your admin
+credentials, then create new users and bots.
+
+```bash
+./bin/quorum-admin --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### 4. Launch the terminal (TUI) client
+
+Pass the server address and CA certificate, then provide valid credentials when
+prompted.
+
+```bash
+./bin/quorum-client --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### 5. Launch the GUI client
+
+The GUI client can be started without arguments and configured from within the
+interface (you will need to provide the path to `certs/ca.pem`):
+
+```bash
+./bin/quorum-gui
+```
+
+You can also pass `--addr` and `--ca` to pre-fill the connection defaults:
+
+```bash
+./bin/quorum-gui --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### Bot Example
 
 ```sh
-# in quorum-admin: tab [2] Bots → 'a' → copy the qbot_ token shown once
+# Create a bot in quorum-admin: tab [2] Bots → 'a' → copy the qbot_ token that is shown
 export QUORUM_BOT_TOKEN=qbot_...
 go run ./examples/dicebot --ca certs/ca.pem --channel general
 # then in a client: /roll 2d6
 ```
 
-## Components
-
-- **cmd/quorum-server** — headless CLI server. Flags: `--listen`, `--cert`,
-  `--key`, `--db`, `--init-admin <name>`, `--log-level`.
-- **cmd/quorum-client** — bubbletea chat TUI. Sidebar of channels and DMs, a
-  message viewport, an input line, a status bar with connection state and
-  E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
-  `/dm <user>`, `/commands` (list bot commands), `/help`, `/quit`.
-- **cmd/quorum-gui** — Fyne desktop chat client; a graphical peer of
-  quorum-client driving the same `internal/client` core. Login form, a
-  channels/DMs sidebar with presence and unread badges, a word-wrapped message
-  pane, E2EE fingerprints in the DM header, and the same slash commands.
-- **cmd/quorum-admin** — bubbletea admin TUI over the role-gated AdminService:
-  add/disable/delete users, reset passwords, create/rotate/delete bots.
-- **sdk/bot** — Go SDK for writing bots; **examples/dicebot** is a worked
-  example.
-- **cmd/quorum-gencert** — generates a dev CA and server certificate. Not for
-  production.
 
 ## Documentation
 
-Deeper, focused docs live in [docs/](docs/):
+Additional docs live in [docs/](docs/):
 
-- [docs/architecture.md](docs/architecture.md) — components, the gRPC services,
+- [docs/architecture.md](docs/architecture.md) - components, the gRPC services,
   the hub, data flow, and the SQLite schema (for contributors).
-- [docs/operations.md](docs/operations.md) — running a server: flags, TLS,
+- [docs/operations.md](docs/operations.md) - running a server: flags, TLS,
   backups, rate limits, hardening, troubleshooting (for operators).
-- [docs/e2ee.md](docs/e2ee.md) — the DM encryption protocol spec and threat
+- [docs/e2ee.md](docs/e2ee.md) - the DM encryption protocol spec and threat
   model.
-- [docs/bot-sdk.md](docs/bot-sdk.md) — writing bots with `sdk/bot`.
+- [docs/bot-sdk.md](docs/bot-sdk.md) - writing bots with `sdk/bot`.
 
 ## Build
 
 ```sh
 make build    # compile all commands into ./bin
-make install  # install all commands into $GOBIN (or $GOPATH/bin)
 ```
 
 `make build` produces `bin/quorum-server`, `bin/quorum-client`,
 `bin/quorum-admin`, and `bin/quorum-gencert`. Build one with `make <name>`
 (e.g. `make quorum-server`). Output dir and flags are overridable, e.g.
 `make build BIN=dist` or `make build LDFLAGS=` to keep debug symbols.
+
+## GUI packaging for desktop
+
+To bundle the GUI components into an application you need to install the fyne tool
+```go install fyne.io/tools/cmd/fyne@latest```
+
+For additional information refer to the [Fyne documentation for desktop packaging](https://docs.fyne.io/started/packaging/)
+
+### MacOS
+The MacOS version requires 10.14, to package a MacOS application
+```MACOSX_DEPLOYMENT_TARGET=10.14 fyne package -os darwin -icon ../../icon/logo.png -src ./cmd/quorum-gui```
+
+### Windows
+```fyne package -os windows -icon ../../icon/logo.png -src ./cmd/quorum-gui```
+
+### Linux
+```fyne package -os linux -icon ../../icon/logo.png -src ./cmd/quorum-gui```
 
 ## Security model
 
@@ -114,7 +223,7 @@ already-pinned user; credential theft via the database (only hashes are
 stored); sender spoofing; DM replay.
 
 **Not** protected: a malicious server performing a MITM on the *first* contact
-between two users (TOFU pins the attacker's key) — this is why fingerprints
+between two users (TOFU pins the attacker's key) - this is why fingerprints
 are shown and must be compared out-of-band for high-stakes conversations;
 traffic-analysis metadata (who talks to whom, when) is visible to the server;
 group channel messages are stored server-side and readable by the server

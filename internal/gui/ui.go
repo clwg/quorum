@@ -1,18 +1,26 @@
 package gui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 // loginFormWidth is the fixed width of the centred connection form.
 const loginFormWidth = 420
+
+// formDialogWidth widens the modal entry dialogs beyond their natural
+// label-hugging width so the entry fields are comfortable to type in.
+const formDialogWidth = 480
 
 // buildLogin constructs the connection/login screen. Dialing and login run off
 // the UI goroutine; on success the window swaps to the chat UI.
@@ -187,8 +195,8 @@ func (a *App) channelRowText(key string) string {
 	return name
 }
 
-// dmRowSegments renders a DM's sidebar row: a presence bullet — green and
-// filled when the peer is online, hollow otherwise — the name, and an unread
+// dmRowSegments renders a DM's sidebar row: a presence bullet - green and
+// filled when the peer is online, hollow otherwise - the name, and an unread
 // badge.
 func dmRowSegments(c *conversation) []widget.RichTextSegment {
 	bullet, bulletColor := "○ ", theme.ColorNameForeground
@@ -295,7 +303,7 @@ func (a *App) updateStatus() {
 func (a *App) promptCreateChannel() {
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder("name")
-	dialog.ShowForm("Create channel", "Create", "Cancel",
+	d := dialog.NewForm("Create channel", "Create", "Cancel",
 		[]*widget.FormItem{widget.NewFormItem("Channel", entry)},
 		func(ok bool) {
 			if !ok {
@@ -305,23 +313,101 @@ func (a *App) promptCreateChannel() {
 				a.createChannel(name)
 			}
 		}, a.win)
+	// Widen past the natural label-hugging width (keeping the natural height) so
+	// the name field has room.
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
+	d.Show()
 }
 
-// showHelp lists the client's slash commands in a dialog.
+// promptChangePassword opens a modal form to change the user's password. The
+// three fields are masked; the new/confirm fields carry validators, so the
+// dialog's "Change" button stays disabled until the new password is long enough
+// and the confirmation matches. The server still verifies the current password
+// and re-checks the rules.
+func (a *App) promptChangePassword() {
+	current := widget.NewPasswordEntry()
+	next := widget.NewPasswordEntry()
+	confirm := widget.NewPasswordEntry()
+
+	next.Validator = func(s string) error {
+		if len(s) < 8 {
+			return errors.New("at least 8 characters")
+		}
+		return nil
+	}
+	confirm.Validator = func(s string) error {
+		if s != next.Text {
+			return errors.New("does not match")
+		}
+		return nil
+	}
+	// Re-validate the confirmation as the new password changes, so the match
+	// check tracks edits to either field.
+	next.OnChanged = func(string) { confirm.Validate() }
+
+	items := []*widget.FormItem{
+		widget.NewFormItem("Current", current),
+		widget.NewFormItem("New", next),
+		widget.NewFormItem("Confirm", confirm),
+	}
+	d := dialog.NewForm("Change password", "Change", "Cancel", items, func(ok bool) {
+		if !ok {
+			return
+		}
+		old, neu := current.Text, next.Text
+		if old == "" {
+			a.setStatus("change password: enter your current password")
+			return
+		}
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			err := a.client.ChangePassword(ctx, old, neu)
+			fyne.Do(func() {
+				if err != nil {
+					a.setStatus("change password: " + grpcErrText(err))
+					return
+				}
+				a.setStatus("password changed")
+			})
+		}()
+	}, a.win)
+	// The form's natural width hugs the labels, leaving the password fields
+	// cramped; widen it (keeping the natural height) so the entries have room.
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
+	d.Show()
+}
+
+// showHelp lists the client's slash commands in a dialog. Commands and their
+// descriptions are laid out in a two-column form grid (the command monospaced),
+// so the columns line up regardless of the theme's proportional font — unlike a
+// single space-padded text block, which doesn't align.
 func (a *App) showHelp() {
-	help := strings.Join([]string{
-		"/create <name>   create a channel and open it",
-		"/join <name>     join an existing channel",
-		"/leave           leave the current channel",
-		"/dm <user>       open an end-to-end-encrypted direct message",
-		"/commands        list commands offered by bots",
-		"/help            show this help",
-		"/quit            exit quorum",
-		"",
-		"Click a channel or user in the sidebar to open it.",
-		"The + above CHANNELS creates a new channel.",
-	}, "\n")
-	dialog.ShowInformation("Quorum commands", help, a.win)
+	commands := [][2]string{
+		{"/create <name>", "create a channel and open it"},
+		{"/join <name>", "join an existing channel"},
+		{"/leave", "leave the current channel"},
+		{"/dm <user>", "open an end-to-end-encrypted direct message"},
+		{"/passwd", "change your password (opens a private form)"},
+		{"/commands", "list commands offered by bots"},
+		{"/help", "show this help"},
+		{"/quit", "exit quorum"},
+	}
+	grid := container.New(layout.NewFormLayout())
+	for _, c := range commands {
+		cmd := widget.NewLabelWithStyle(c[0], fyne.TextAlignLeading, fyne.TextStyle{Monospace: true})
+		grid.Add(cmd)
+		grid.Add(widget.NewLabel(c[1]))
+	}
+
+	tips := widget.NewLabel("Click a channel or user in the sidebar to open it.\n" +
+		"The + above CHANNELS creates a new channel.")
+	tips.Wrapping = fyne.TextWrapWord
+
+	content := container.NewVBox(grid, widget.NewSeparator(), tips)
+	d := dialog.NewCustom("Quorum commands", "Close", content, a.win)
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
+	d.Show()
 }
 
 // messageRow renders one scrollback entry as a word-wrapped rich-text row.

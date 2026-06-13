@@ -67,6 +67,41 @@ var dummyPHC = func() string {
 	return phc
 }()
 
+// ChangePassword replaces the caller's own password after verifying the
+// current one. Unlike the admin ResetPassword, it leaves existing sessions
+// (including this one) intact, so the user is not logged out of the client
+// they just changed it from.
+func (s *AuthService) ChangePassword(ctx context.Context, req *quorumv1.ChangePasswordRequest) (*quorumv1.ChangePasswordResponse, error) {
+	ident := auth.FromContext(ctx)
+	if ident == nil {
+		return nil, status.Error(codes.Unauthenticated, "no identity")
+	}
+	u, err := s.store.GetUserByID(ctx, ident.UserID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "lookup failed")
+	}
+	if u.Role == "bot" || u.PasswordHash == "" {
+		return nil, status.Error(codes.FailedPrecondition, "bots have tokens, not passwords")
+	}
+	if err := auth.VerifyPassword(req.GetOldPassword(), u.PasswordHash); err != nil {
+		return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
+	}
+	if len(req.GetNewPassword()) < 8 {
+		return nil, status.Error(codes.InvalidArgument, "password must be at least 8 characters")
+	}
+	if req.GetNewPassword() == req.GetOldPassword() {
+		return nil, status.Error(codes.InvalidArgument, "new password must differ from the current one")
+	}
+	phc, err := auth.HashPassword(req.GetNewPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "hash failed")
+	}
+	if err := s.store.SetUserPassword(ctx, u.ID, phc); err != nil {
+		return nil, status.Error(codes.Internal, "update failed")
+	}
+	return &quorumv1.ChangePasswordResponse{}, nil
+}
+
 func (s *AuthService) WhoAmI(ctx context.Context, _ *quorumv1.WhoAmIRequest) (*quorumv1.WhoAmIResponse, error) {
 	ident := auth.FromContext(ctx)
 	if ident == nil {

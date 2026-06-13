@@ -43,6 +43,9 @@ type actionErrMsg struct {
 }
 type joinedMsg struct{ ch *quorumv1.Channel }
 
+// pwResultMsg carries the outcome of a ChangePassword RPC back to the modal.
+type pwResultMsg struct{ err error }
+
 type focusArea int
 
 const (
@@ -132,6 +135,19 @@ type Model struct {
 	pendingJoin string                    // channel name a /join is waiting on a refresh for
 	users       map[string]*quorumv1.User // by ID
 	pumpStarted bool
+
+	// pw is the modal password-change form; nil unless /passwd is open. The
+	// form captures input out-of-band so a password is never typed into the
+	// message line or echoed into the scrollback.
+	pw *pwForm
+}
+
+// pwForm is the modal /passwd form: current, new, and confirm fields.
+type pwForm struct {
+	inputs []textinput.Model // current, new, confirm
+	focus  int
+	err    string
+	busy   bool
 }
 
 func New(c *client.Client) *Model {

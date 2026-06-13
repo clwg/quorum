@@ -103,7 +103,7 @@ func dialAndLogin(ctx context.Context, addr, caFile, dataDir, username, password
 // showMain swaps the window to the chat UI and starts the event pump.
 func (a *App) showMain() {
 	a.win.SetContent(a.buildMain())
-	a.win.SetTitle("Quorum — " + a.client.Username())
+	a.win.SetTitle("Quorum - " + a.client.Username())
 	a.win.Canvas().Focus(a.input)
 	a.updateStatus()
 	a.startPump()
@@ -349,6 +349,13 @@ func (a *App) submit(text string) {
 			}
 			a.openDM(fields[1])
 			return
+		case "/passwd":
+			// Open a dedicated dialog rather than reading a password from the
+			// message line: nothing is sent until the user fills it in and
+			// confirms, so a stray "/passwd" can't change anything or leak into
+			// a channel.
+			a.promptChangePassword()
+			return
 		}
 		// Unknown slash commands (a bot's own command, or /commands) fall
 		// through to the channel so bots and the server can see them.
@@ -555,7 +562,7 @@ func (a *App) handleEvent(ev client.Event) {
 		case ev.Err != nil:
 			a.push(conv, errLine(ev.Err.Error()))
 		case ev.Established:
-			a.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established — their key: %s", conv.fingerprint)))
+			a.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established - their key: %s", conv.fingerprint)))
 		default:
 			a.push(conv, sysLine("🔓 session closed"))
 		}

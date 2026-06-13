@@ -43,7 +43,7 @@ func main() {
 	b.Command("roll", "roll dice, e.g. /roll 2d6", func(ctx context.Context, c *bot.Command) error {
 		n, sides, err := parseDice(c.RawArgs)
 		if err != nil {
-			return c.Replyf("%s — usage: /roll NdS (e.g. 2d6)", err)
+			return c.Replyf("%s - usage: /roll NdS (e.g. 2d6)", err)
 		}
 		total := 0
 		for range n {

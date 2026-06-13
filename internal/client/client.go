@@ -199,6 +199,23 @@ func (c *Client) Login(ctx context.Context, username, password string) error {
 	return nil
 }
 
+// ChangePassword replaces the logged-in user's password after the server
+// verifies the current one. On success it updates the in-memory credential
+// used for automatic re-login on reconnect, so the live session keeps working
+// with the new password.
+func (c *Client) ChangePassword(ctx context.Context, oldPassword, newPassword string) error {
+	if _, err := c.authc.ChangePassword(ctx, &quorumv1.ChangePasswordRequest{
+		OldPassword: oldPassword,
+		NewPassword: newPassword,
+	}); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.password = newPassword
+	c.mu.Unlock()
+	return nil
+}
+
 // relogin re-authenticates with the remembered password after the token
 // was rejected during reconnect.
 func (c *Client) relogin(ctx context.Context) error {
@@ -249,7 +266,7 @@ func (c *Client) emit(ev Event) {
 }
 
 // Run pumps the Subscribe stream, reconnecting with backoff until ctx is
-// cancelled. All inbound traffic — including decrypted DMs — is delivered
+// cancelled. All inbound traffic - including decrypted DMs - is delivered
 // through onEvent; the function blocks.
 func (c *Client) Run(ctx context.Context, onEvent func(Event)) {
 	c.onEvent = onEvent

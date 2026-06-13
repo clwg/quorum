@@ -40,7 +40,7 @@ type ChannelEventEvent struct{ Event *quorumv1.ChannelEvent }
 type SystemEvent struct{ Notice *quorumv1.SystemNotice }
 
 // DirectMessageEvent is a decrypted 1:1 message (or the local echo of one
-// we sent — the server does not echo DMs).
+// we sent - the server does not echo DMs).
 type DirectMessageEvent struct {
 	PeerID   string
 	PeerName string

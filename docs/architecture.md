@@ -35,17 +35,18 @@ All three are built on the same [`internal/client`](../internal/client)
 package, which owns dialing, login/token auth, the Subscribe pump with
 reconnect, and (for the two human clients) the E2EE session manager.
 
-- **`cmd/quorum-client`** — the chat TUI ([`internal/tui/chat`](../internal/tui/chat)),
+- **`cmd/quorum-client`** - the chat TUI ([`internal/tui/chat`](../internal/tui/chat)),
   a bubbletea app: channel/DM sidebar, message viewport, input line, status
   bar with connection state and E2EE fingerprints. Slash commands are parsed
-  client-side (`/create`, `/join`, `/leave`, `/dm`, `/commands`, `/help`,
-  `/quit`). `/help` is rendered locally; `/commands` asks the server for the
+  client-side (`/create`, `/join`, `/leave`, `/dm`, `/passwd`, `/commands`,
+  `/help`, `/quit`). `/help` is rendered locally; `/passwd` opens a modal form
+  that calls `AuthService.ChangePassword`; `/commands` asks the server for the
   bot commands registered in this channel.
-- **`cmd/quorum-admin`** — the admin TUI ([`internal/tui/admin`](../internal/tui/admin)),
+- **`cmd/quorum-admin`** - the admin TUI ([`internal/tui/admin`](../internal/tui/admin)),
   driving `AdminService`.
-- **`sdk/bot` + `examples/dicebot`** — bots are ordinary token-authenticated
+- **`sdk/bot` + `examples/dicebot`** - bots are ordinary token-authenticated
   clients. See [bot-sdk.md](bot-sdk.md).
-- **`cmd/quorum-gencert`** — dev-only CA + server cert generator.
+- **`cmd/quorum-gencert`** - dev-only CA + server cert generator.
 
 ## The three gRPC services
 
@@ -60,6 +61,12 @@ does not require a bearer token. Notable details:
 - `Login` is rate-limited per username (~5/min, burst 5) and runs a dummy
   argon2 verification when the user doesn't exist, so present and absent
   usernames take comparable time. Bots cannot log in (they have no password).
+- `ChangePassword` is the self-service counterpart to the admin-only
+  `AdminService.ResetPassword`: the caller proves ownership with their current
+  password and sets a new one. Unlike the admin reset (which kills the target's
+  sessions), it leaves existing sessions intact, so the user is not logged out
+  of the client they changed it from. Bots are rejected (they have tokens, not
+  passwords).
 - `WhoAmI` resolves identity from the bearer token; bots call this instead of
   `Login`.
 - `PublishIdentityKey` / `GetIdentityKey` are the X25519 directory used to
@@ -75,7 +82,7 @@ client; the rest are unary.
 - **Channel ops** (`SendChannelMessage`, `Create/Join/Leave/ListChannels`,
   `GetChannelHistory`, `ListUsers`) check membership, persist where relevant,
   and fan out events. Sender identity is always taken from the authenticated
-  context, never from the request — clients cannot spoof a sender.
+  context, never from the request - clients cannot spoof a sender.
 - **`SendDirect`** relays one opaque `DirectEnvelope` to a connected recipient
   and persists nothing. It overwrites the sender fields, enforces a payload
   size cap, and is rate-limited (20/s/sender, burst 40). Offline recipient ⇒
@@ -100,7 +107,7 @@ the gRPC interceptors. Every non-exempt RPC passes through
 2. If the token has the `qbot_` prefix, resolve it as a bot token hash;
    otherwise resolve it as a session token hash and check expiry.
 3. Reject disabled accounts.
-4. For `qsess_` tokens, lazily extend session expiry — at most once per minute
+4. For `qsess_` tokens, lazily extend session expiry - at most once per minute
    per token, to avoid a DB write on every RPC.
 5. For `/quorum.v1.AdminService/*`, require `role=admin`.
 6. Inject the resolved `*auth.Identity` into the request context; handlers read
@@ -115,7 +122,7 @@ hashes.
 
 [`internal/hub`](../internal/hub) is an in-memory map of `userID → Subscriber`
 with a buffered channel per subscriber. It is the single source of truth for
-presence — nothing about who's online touches the database.
+presence - nothing about who's online touches the database.
 
 - **One stream per user.** `Register` kicks any previous subscriber for the
   same user (closing its `Done` channel).
@@ -147,8 +154,8 @@ emits a `DirectMessageEvent`. The whole handshake-and-frame protocol is in
 **Reconnect.** The client's `Run` loop ([`client.go`](../internal/client/client.go))
 re-subscribes with exponential backoff (1s → 30s cap), re-logging-in with the
 remembered password if the token was rejected. On every successful
-(re)subscribe it **drops all E2EE sessions** (`dm.reset()`) — a session must
-never continue across a gap where frames may have been lost — and emits a
+(re)subscribe it **drops all E2EE sessions** (`dm.reset()`) - a session must
+never continue across a gap where frames may have been lost - and emits a
 `ResyncEvent` so the UI refetches channels and history.
 
 ## Persistence
@@ -162,7 +169,7 @@ lexical order and recorded in `schema_migrations`. Schema:
 
 Tables: `users`, `sessions` (token-hash keyed, with sliding expiry),
 `identity_keys` (the X25519 directory), `channels`, `channel_members`,
-`messages` (**group history only** — 1:1 DMs never land here), and `bots`
+`messages` (**group history only** - 1:1 DMs never land here), and `bots`
 (owner + token hash). See [operations.md](operations.md) for backup guidance.
 
 ## Package map

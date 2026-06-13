@@ -9,11 +9,11 @@ A bot is an ordinary chat client that authenticates with a **bot token** instead
 of a username/password. It joins channels, sees every message in them, and
 responds to slash commands. Command routing happens **client-side** in the SDK;
 the server only keeps a registry of command names so its built-in `/commands`
-listing can advertise them. (`/help` in the chat client is separate — it
+listing can advertise them. (`/help` in the chat client is separate - it
 documents the client's own built-in commands.)
 
 > Bots operate on **group channels only**. They have no access to end-to-end
-> encrypted 1:1 DMs — by design, the server can't read those, so neither can a
+> encrypted 1:1 DMs - by design, the server can't read those, so neither can a
 > bot ([e2ee.md](e2ee.md)).
 
 ## Provisioning (operator)
@@ -21,7 +21,7 @@ documents the client's own built-in commands.)
 Tokens are minted in the admin TUI; a developer cannot create their own.
 
 1. Run `quorum-admin` and open the **Bots** tab (`[2]`).
-2. Press `a` to add a bot. A `qbot_…` token is shown **once** — copy it
+2. Press `a` to add a bot. A `qbot_…` token is shown **once** - copy it
    immediately; only its SHA-256 hash is stored, so it can't be retrieved later.
 3. Hand the token to the bot developer over a secure channel.
 
@@ -79,7 +79,7 @@ All types are in [`sdk/bot/bot.go`](../sdk/bot/bot.go).
 ### `New(serverAddr, token string, opts ...Option) (*Bot, error)`
 Dials the server and prepares an authenticated bot. The token **must** start
 with `qbot_`; anything else is rejected immediately. Dialing verifies TLS and
-records the server fingerprint, but does not yet validate the token — that
+records the server fingerprint, but does not yet validate the token - that
 happens in `Run`.
 
 ### Options
@@ -100,7 +100,7 @@ type HandlerFunc func(ctx context.Context, cmd *bot.Command) error
 
 `*bot.Command` gives you `Name`, `RawArgs` (everything after the command word),
 `Args` (`RawArgs` split on whitespace), `ChannelID`, and `Sender` (`{ID,
-Username}`). Reply with `c.Reply(text)` or `c.Replyf(format, …)` — both post to
+Username}`). Reply with `c.Reply(text)` or `c.Replyf(format, …)` - both post to
 the channel the command came from. If a handler returns an error, the SDK logs
 it and replies `⚠ command failed: <err>` in-channel.
 
@@ -135,7 +135,7 @@ Tear down the connection.
   (`ResyncEvent`), so `/commands` stays correct across reconnects.
 - **Duplicate-command warnings.** If another bot already claimed a command
   name, `RegisterCommands` returns the dupes and the SDK logs a warning. The
-  duplicate simply isn't owned by you — there's no hard error.
+  duplicate simply isn't owned by you - there's no hard error.
 
 ## Concurrency
 
@@ -153,13 +153,13 @@ Replies are independent RPCs and safe to call concurrently.
 
 Routing is entirely client-side. `RegisterCommands` exists only so the server's
 built-in `/commands` listing can advertise your commands and warn about name
-collisions — it does **not** affect dispatch.
+collisions - it does **not** affect dispatch.
 
 ## Worked example: dicebot
 
 [`examples/dicebot/main.go`](../examples/dicebot/main.go) is a complete,
 runnable bot: `/roll NdS` rolls dice (`/roll 2d6`, defaults to `1d6`). It shows
-the whole shape — flag parsing, `WithCAFile`, one `Command` with argument
+the whole shape - flag parsing, `WithCAFile`, one `Command` with argument
 parsing and `Replyf`, `JoinChannel`, and `Run`.
 
 ```sh
@@ -170,6 +170,6 @@ go run ./examples/dicebot --addr localhost:8443 --ca certs/ca.pem --channel gene
 ```
 
 Note how it validates arguments and replies with a usage hint on bad input
-(`return c.Replyf("%s — usage: /roll NdS", err)`) rather than returning an
-error — returning an error would surface the generic `⚠ command failed` reply
+(`return c.Replyf("%s - usage: /roll NdS", err)`) rather than returning an
+error - returning an error would surface the generic `⚠ command failed` reply
 instead of a friendly message.

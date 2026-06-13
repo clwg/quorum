@@ -49,7 +49,7 @@ quorum-server --listen :8443 \
 
 `--init-admin` is the only way to create the *first* admin. After that, use the
 admin TUI (`quorum-admin`) to create more users, admins, and bots. If you pipe
-the password in (non-interactive), the server reads one line from stdin — useful
+the password in (non-interactive), the server reads one line from stdin - useful
 for scripted bring-up, but the password may land in your shell history.
 
 There is intentionally **no open registration**: every account is created by an
@@ -66,7 +66,7 @@ scopes all their local state (identity keys, TOFU pins).
 
 `make certs` runs [`quorum-gencert`](../cmd/quorum-gencert/main.go), producing a
 throwaway P-256 CA and a server cert valid one year with SANs `localhost`,
-`127.0.0.1`, `::1`. **This is for local use only** — the CA private key is
+`127.0.0.1`, `::1`. **This is for local use only** - the CA private key is
 written right next to everything else and the SANs only cover loopback.
 
 ### Production
@@ -100,10 +100,10 @@ Because WAL is on, the database is the file **plus** its `-wal` and `-shm`
 sidecars. Two safe options:
 
 - **Hot, consistent:** `sqlite3 quorum.db ".backup '/path/backup.db'"` (uses
-  SQLite's online backup API — safe while the server runs).
+  SQLite's online backup API - safe while the server runs).
 - **Cold:** stop the server, then copy `quorum.db*` (all three files).
 
-A plain `cp quorum.db` of a running server can miss data still in the WAL —
+A plain `cp quorum.db` of a running server can miss data still in the WAL -
 prefer `.backup`.
 
 ### What's in there (and what isn't)
@@ -112,7 +112,7 @@ Stored: users, **argon2id password hashes** (never plaintext), session token
 **hashes** (never the tokens), the X25519 public-key directory, channels and
 membership, **group** message history, and bot token **hashes**.
 
-Not stored: any password or token in clear, and **any 1:1 DM** — direct
+Not stored: any password or token in clear, and **any 1:1 DM** - direct
 messages are relayed in real time and never written to disk (see
 [e2ee.md](e2ee.md)). A database compromise therefore yields group history and
 metadata, but neither credentials in usable form nor DM contents.
@@ -156,7 +156,7 @@ every 15s or the server will drop you for keepalive abuse.
 The server handles `SIGINT`/`SIGTERM` with a graceful gRPC stop (in-flight RPCs
 drain). For an init system, a minimal unit needs only the binary, the flags
 above, a working directory containing `certs/` and the DB (or absolute paths),
-and a restart policy. There is no clustering: run **one** server per database —
+and a restart policy. There is no clustering: run **one** server per database -
 presence and the realtime hub are in-process memory
 ([architecture.md](architecture.md#the-hub-fan-out-and-presence)), so a second
 process pointed at the same DB would not share live state and SQLite's single
@@ -175,7 +175,7 @@ A consolidated view for operators (full DM analysis in [e2ee.md](e2ee.md)):
   cannot read them.
 - **Known limits:** group messages are server-readable and persisted; the
   server sees DM *metadata* (who/when); first-contact DM is TOFU (a malicious
-  server can MITM the very first handshake — hence the fingerprints clients
+  server can MITM the very first handshake - hence the fingerprints clients
   show); no per-message ratchet. DMs need both parties online.
 
 ## Troubleshooting
@@ -185,8 +185,8 @@ A consolidated view for operators (full DM analysis in [e2ee.md](e2ee.md)):
 | Client: `server fingerprint: …` / TLS verify error on dial | Wrong/missing `--ca`, or cert SAN doesn't match the dialed host. |
 | Client: `invalid credentials` | Wrong password, disabled account, or a bot trying to `Login` (bots use tokens). |
 | Client: `too many login attempts` | Login rate limit (~5/min per username); wait. |
-| DM: `user offline — direct messages require both parties online` | Recipient has no live stream. DMs are online-only by design. |
-| DM: `identity key for X changed … verify out-of-band` | TOFU pin mismatch — key rotation or MITM. See [e2ee.md](e2ee.md#operator-notes). |
+| DM: `user offline - direct messages require both parties online` | Recipient has no live stream. DMs are online-only by design. |
+| DM: `identity key for X changed … verify out-of-band` | TOFU pin mismatch - key rotation or MITM. See [e2ee.md](e2ee.md#operator-notes). |
 | Client kicked / `stream replaced or terminated` | A newer login for the same user took over, or an admin action kicked you, or your buffer overflowed (laggy link). The client auto-reconnects. |
 | Bot: `token rejected` | Bad/rotated `qbot_` token; reissue in the admin TUI. |
-| Server won't start: migrate error | DB file from an incompatible/newer schema, or corruption — restore a backup. |
+| Server won't start: migrate error | DB file from an incompatible/newer schema, or corruption - restore a backup. |

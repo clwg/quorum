@@ -353,7 +353,7 @@ func (s *ChatService) SendDirect(ctx context.Context, req *quorumv1.SendDirectRe
 		Event: &quorumv1.ServerEvent_DirectEnvelope{DirectEnvelope: env},
 	})
 	if !ok {
-		return nil, status.Error(codes.Unavailable, "user offline — direct messages require both parties online")
+		return nil, status.Error(codes.Unavailable, "user offline - direct messages require both parties online")
 	}
 	return &quorumv1.SendDirectResponse{}, nil
 }
@@ -402,7 +402,7 @@ func (s *ChatService) BotCommandsText() string {
 	}
 	var b strings.Builder
 	for name, owner := range s.commands {
-		fmt.Fprintf(&b, "/%s — %s (%s)\n", name, owner.help, owner.botName)
+		fmt.Fprintf(&b, "/%s - %s (%s)\n", name, owner.help, owner.botName)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

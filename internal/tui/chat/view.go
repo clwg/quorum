@@ -74,7 +74,47 @@ func (m *Model) View() string {
 	if !m.loggedIn {
 		return m.loginView()
 	}
+	if m.pw != nil {
+		return m.passwordView()
+	}
 	return m.mainView()
+}
+
+// passwordView draws the /passwd modal: a centred, bordered card with the three
+// masked fields, an error or hint line, and key reminders. It replaces the chat
+// view while open (like the login screen) so it reads as a deliberate, modal
+// action rather than something that fits in the message flow.
+func (m *Model) passwordView() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render("Change password"))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("Verify with your current password, then set a new one."))
+	b.WriteString("\n\n")
+	for i, in := range m.pw.inputs {
+		caret := "  "
+		if i == m.pw.focus {
+			caret = promptStyle.Render("› ")
+		}
+		b.WriteString(caret)
+		b.WriteString(in.View())
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+	switch {
+	case m.pw.busy:
+		b.WriteString(dimStyle.Render("changing…"))
+	case m.pw.err != "":
+		b.WriteString(errStyle.Render("✗ " + m.pw.err))
+	default:
+		b.WriteString(dimStyle.Render("Tab to switch · Enter to save · Esc to cancel"))
+	}
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).
+		Padding(1, 3).Render(b.String())
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	}
+	return box
 }
 
 func (m *Model) loginView() string {
@@ -108,8 +148,8 @@ func (m *Model) mainView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, m.statusBar())
 }
 
-// sidebarView draws two independently scrolled panels — channels on top, DMs
-// below — separated by a blank line. Each panel emits exactly its allotted
+// sidebarView draws two independently scrolled panels - channels on top, DMs
+// below - separated by a blank line. Each panel emits exactly its allotted
 // number of rows so the sidebar's height is fixed regardless of how many
 // conversations exist, which keeps overflow from pushing the body off-screen.
 func (m *Model) sidebarView() string {
@@ -329,8 +369,8 @@ func renderMessage(msg message, w int) string {
 
 // statusBar draws the bottom bar: a transient note on the left, the active DM's
 // key plus the local user and connection state pinned to the right. Every
-// segment carries the bar background explicitly — a foreground-only style would
-// reset to the terminal's default (black) background between segments — and the
+// segment carries the bar background explicitly - a foreground-only style would
+// reset to the terminal's default (black) background between segments - and the
 // bar uses ASCII only so an ambiguous-width glyph can never wrap it.
 func (m *Model) statusBar() string {
 	w := max(0, m.width)

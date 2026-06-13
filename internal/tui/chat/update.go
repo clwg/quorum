@@ -6,12 +6,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/layer8/quorum/internal/client"
 )
 
 func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// While the password modal is open it owns the keyboard and the RPC result;
+	// every other message (incoming events, resize) still flows to the normal
+	// handlers below so background state stays current behind the overlay.
+	if m.pw != nil {
+		if model, cmd, handled := m.updatePwForm(msg); handled {
+			return model, cmd
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -57,7 +66,7 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, u := range msg.users {
 			m.users[u.GetId()] = u
 			// Skip yourself and bots. Bots publish no identity key, so there is
-			// no E2EE session to open with them — they can't be DM targets.
+			// no E2EE session to open with them - they can't be DM targets.
 			if u.GetId() == m.client.UserID() || u.GetRole() == "bot" {
 				continue
 			}
@@ -362,6 +371,12 @@ func (m *Model) submit(text string) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m.openDM(fields[1])
+		case "/passwd":
+			// Open the modal form rather than reading a password from the
+			// command line: nothing is sent until the user fills it in and
+			// confirms, so a stray "/passwd" can never change anything or leak
+			// into a channel.
+			return m.openPwForm()
 		}
 		// Unknown slash commands (a bot's own command, or the built-in
 		// /commands bot-command listing) fall through to the channel so
@@ -412,6 +427,115 @@ func (m *Model) openDM(username string) (tea.Model, tea.Cmd) {
 	return m, m.fetchUsers()
 }
 
+// --- password change modal ---
+
+// pwFields labels the three modal inputs, in order.
+var pwFields = []string{"current password", "new password", "confirm new password"}
+
+// openPwForm builds and shows the /passwd modal with three masked fields.
+func (m *Model) openPwForm() (tea.Model, tea.Cmd) {
+	inputs := make([]textinput.Model, len(pwFields))
+	for i, ph := range pwFields {
+		in := textinput.New()
+		in.Placeholder = ph
+		in.EchoMode = textinput.EchoPassword
+		in.CharLimit = 256
+		in.Prompt = ""
+		inputs[i] = in
+	}
+	inputs[0].Focus()
+	m.pw = &pwForm{inputs: inputs}
+	m.input.Blur()
+	return m, textinput.Blink
+}
+
+// closePwForm dismisses the modal and returns focus to the message input.
+func (m *Model) closePwForm() {
+	m.pw = nil
+	m.focus = focusInput
+	m.input.Focus()
+}
+
+// pwFocus moves the modal's focus by delta, wrapping, and updates which field
+// shows the blinking cursor.
+func (m *Model) pwFocus(delta int) {
+	n := len(m.pw.inputs)
+	m.pw.focus = ((m.pw.focus+delta)%n + n) % n
+	for i := range m.pw.inputs {
+		if i == m.pw.focus {
+			m.pw.inputs[i].Focus()
+		} else {
+			m.pw.inputs[i].Blur()
+		}
+	}
+}
+
+// updatePwForm drives the modal. It returns handled=true for the keystrokes and
+// the RPC result it consumes, and handled=false for everything else so those
+// messages fall through to the normal update path.
+func (m *Model) updatePwForm(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case pwResultMsg:
+		m.pw.busy = false
+		if msg.err != nil {
+			m.pw.err = grpcErrText(msg.err)
+			return m, nil, true
+		}
+		m.closePwForm()
+		m.statusNote = "password changed"
+		return m, nil, true
+	case tea.KeyMsg:
+		if m.pw.busy {
+			return m, nil, true // ignore input while the RPC is in flight
+		}
+		switch msg.Type {
+		case tea.KeyEsc:
+			m.closePwForm()
+			return m, nil, true
+		case tea.KeyTab, tea.KeyDown:
+			m.pwFocus(1)
+			return m, nil, true
+		case tea.KeyShiftTab, tea.KeyUp:
+			m.pwFocus(-1)
+			return m, nil, true
+		case tea.KeyEnter:
+			return m.submitPwForm()
+		}
+		var cmd tea.Cmd
+		m.pw.inputs[m.pw.focus], cmd = m.pw.inputs[m.pw.focus].Update(msg)
+		return m, cmd, true
+	}
+	return m, nil, false
+}
+
+// submitPwForm validates the three fields locally, then fires the RPC. Local
+// checks keep an obvious mistake from costing a round trip; the server is still
+// the authority (it re-checks length and the current password).
+func (m *Model) submitPwForm() (tea.Model, tea.Cmd, bool) {
+	old := m.pw.inputs[0].Value()
+	next := m.pw.inputs[1].Value()
+	confirm := m.pw.inputs[2].Value()
+	switch {
+	case old == "":
+		m.pw.err = "enter your current password"
+	case len(next) < 8:
+		m.pw.err = "new password must be at least 8 characters"
+	case next != confirm:
+		m.pw.err = "new passwords do not match"
+	case next == old:
+		m.pw.err = "new password must differ from the current one"
+	default:
+		m.pw.err = ""
+		m.pw.busy = true
+		return m, func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			return pwResultMsg{err: m.client.ChangePassword(ctx, old, next)}
+		}, true
+	}
+	return m, nil, true
+}
+
 // helpLines is the built-in /help output: the client's own slash commands and
 // key bindings. Commands offered by bots are listed separately by /commands.
 var helpLines = []string{
@@ -420,6 +544,7 @@ var helpLines = []string{
 	"  /join <name>     join an existing channel",
 	"  /leave           leave the current channel",
 	"  /dm <user>       open an end-to-end-encrypted direct message",
+	"  /passwd          change your password (opens a private form)",
 	"  /commands        list commands offered by bots",
 	"  /help            show this help",
 	"  /quit            exit quorum",
@@ -491,7 +616,7 @@ func (m *Model) handleEvent(ev client.Event) (tea.Model, tea.Cmd) {
 		if ev.Err != nil {
 			m.push(conv, errLine(ev.Err.Error()))
 		} else if ev.Established {
-			m.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established — their key: %s", conv.fingerprint)))
+			m.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established - their key: %s", conv.fingerprint)))
 		} else {
 			m.push(conv, sysLine("🔓 session closed"))
 		}
