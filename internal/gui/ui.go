@@ -17,9 +17,9 @@ import (
 // loginFormWidth is the fixed width of the centred connection form.
 const loginFormWidth = 420
 
-// changePasswordDialogWidth widens the /passwd dialog beyond its natural
-// label-hugging width so the masked entry fields are comfortable to type in.
-const changePasswordDialogWidth = 480
+// formDialogWidth widens the modal entry dialogs beyond their natural
+// label-hugging width so the entry fields are comfortable to type in.
+const formDialogWidth = 480
 
 // buildLogin constructs the connection/login screen. Dialing and login run off
 // the UI goroutine; on success the window swaps to the chat UI.
@@ -302,7 +302,7 @@ func (a *App) updateStatus() {
 func (a *App) promptCreateChannel() {
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder("name")
-	dialog.ShowForm("Create channel", "Create", "Cancel",
+	d := dialog.NewForm("Create channel", "Create", "Cancel",
 		[]*widget.FormItem{widget.NewFormItem("Channel", entry)},
 		func(ok bool) {
 			if !ok {
@@ -312,6 +312,10 @@ func (a *App) promptCreateChannel() {
 				a.createChannel(name)
 			}
 		}, a.win)
+	// Widen past the natural label-hugging width (keeping the natural height) so
+	// the name field has room.
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
+	d.Show()
 }
 
 // promptChangePassword opens a modal form to change the user's password. The
@@ -369,7 +373,7 @@ func (a *App) promptChangePassword() {
 	}, a.win)
 	// The form's natural width hugs the labels, leaving the password fields
 	// cramped; widen it (keeping the natural height) so the entries have room.
-	d.Resize(fyne.NewSize(changePasswordDialogWidth, d.MinSize().Height))
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
 	d.Show()
 }
 

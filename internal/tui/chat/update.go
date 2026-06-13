@@ -616,7 +616,7 @@ func (m *Model) handleEvent(ev client.Event) (tea.Model, tea.Cmd) {
 		if ev.Err != nil {
 			m.push(conv, errLine(ev.Err.Error()))
 		} else if ev.Established {
-			m.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established — their key: %s", conv.fingerprint)))
+			m.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established - their key: %s", conv.fingerprint)))
 		} else {
 			m.push(conv, sysLine("🔓 session closed"))
 		}

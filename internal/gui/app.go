@@ -562,7 +562,7 @@ func (a *App) handleEvent(ev client.Event) {
 		case ev.Err != nil:
 			a.push(conv, errLine(ev.Err.Error()))
 		case ev.Established:
-			a.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established — their key: %s", conv.fingerprint)))
+			a.push(conv, okLine(fmt.Sprintf("🔒 encrypted session established - their key: %s", conv.fingerprint)))
 		default:
 			a.push(conv, sysLine("🔓 session closed"))
 		}
