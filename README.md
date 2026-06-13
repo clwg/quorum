@@ -155,13 +155,29 @@ Additional docs live in [docs/](docs/):
 
 ```sh
 make build    # compile all commands into ./bin
-make install  # install all commands into $GOBIN (or $GOPATH/bin)
 ```
 
 `make build` produces `bin/quorum-server`, `bin/quorum-client`,
 `bin/quorum-admin`, and `bin/quorum-gencert`. Build one with `make <name>`
 (e.g. `make quorum-server`). Output dir and flags are overridable, e.g.
 `make build BIN=dist` or `make build LDFLAGS=` to keep debug symbols.
+
+## GUI packaging for desktop
+
+To bundle the GUI components into an application you need to install the fyne tool
+```go install fyne.io/tools/cmd/fyne@latest```
+
+For additional information refer to the [Fyne documentation for desktop packaging](https://docs.fyne.io/started/packaging/)
+
+### MacOS
+The MacOS version requires 10.14, to package a MacOS application
+```MACOSX_DEPLOYMENT_TARGET=10.14 fyne package -os darwin -icon ../../icon/logo.png -src ./cmd/quorum-gui```
+
+### Windows
+```fyne package -os windows -icon ../../icon/logo.png -src ./cmd/quorum-gui```
+
+### Linux
+```fyne package -os linux -icon ../../icon/logo.png -src ./cmd/quorum-gui```
 
 ## Security model
 

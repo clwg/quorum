@@ -5,3 +5,4 @@ certs/
 *.db
 *.db-wal
 *.db-shm
+quorum-gui.app
