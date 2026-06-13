@@ -4,29 +4,6 @@ A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
 
-## Quick start
-
-```sh
-brew install buf            # codegen toolchain (uses remote plugins)
-make gen                    # generate gen/quorum/v1 from proto/
-make certs                  # dev self-signed CA + server cert into certs/
-go run ./cmd/quorum-server --db quorum.db --init-admin adminuser  # set a password
-make run-server             # listens on :8443 with the dev cert
-
-# in other terminals:
-make run-client             # log in, /create general, chat, /dm <user>
-make run-admin              # manage users and bots
-```
-
-Bots:
-
-```sh
-# in quorum-admin: tab [2] Bots → 'a' → copy the qbot_ token shown once
-export QUORUM_BOT_TOKEN=qbot_...
-go run ./examples/dicebot --ca certs/ca.pem --channel general
-# then in a client: /roll 2d6
-```
-
 ## Components
 
 - **cmd/quorum-server** — headless CLI server. Flags: `--listen`, `--cert`,
@@ -36,9 +13,7 @@ go run ./examples/dicebot --ca certs/ca.pem --channel general
   E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
   `/dm <user>`, `/commands` (list bot commands), `/help`, `/quit`.
 - **cmd/quorum-gui** — Fyne desktop chat client; a graphical peer of
-  quorum-client driving the same `internal/client` core. Login form, a
-  channels/DMs sidebar with presence and unread badges, a word-wrapped message
-  pane, E2EE fingerprints in the DM header, and the same slash commands.
+  quorum-client driving the same `internal/client` core.
 - **cmd/quorum-admin** — bubbletea admin TUI over the role-gated AdminService:
   add/disable/delete users, reset passwords, create/rotate/delete bots.
 - **sdk/bot** — Go SDK for writing bots; **examples/dicebot** is a worked
@@ -46,9 +21,124 @@ go run ./examples/dicebot --ca certs/ca.pem --channel general
 - **cmd/quorum-gencert** — generates a dev CA and server certificate. Not for
   production.
 
+## Quickstart
+
+This section walks you through cloning, building, and running Quorum.
+
+### Prerequisites
+
+The GUI client is built with the [Fyne](https://fyne.io) framework, which
+requires a C compiler and a system graphics driver. See the
+[Fyne Getting Started guide](https://docs.fyne.io/started/quick/) for
+platform-specific install instructions.
+
+### Clone the repository
+
+```bash
+git clone git@github.com:clwg/quorum.git
+cd quorum
+```
+
+### Build the application
+
+Build every component at once:
+
+```bash
+make build
+```
+
+Or build components individually:
+
+| Component       | Command               | Output binary        |
+| --------------- | --------------------- | -------------------- |
+| Server          | `make quorum-server`  | `./bin/quorum-server` |
+| Admin client    | `make quorum-admin`   | `./bin/quorum-admin`  |
+| Terminal client | `make quorum-client`  | `./bin/quorum-client` |
+| GUI client      | `make quorum-gui`     | `./bin/quorum-gui`    |
+
+### Generate certificates
+
+Quorum uses TLS. Generate a CA and server certificate into the `certs/`
+directory:
+
+```bash
+make certs
+```
+
+### Running the application
+
+#### 1. Initialize the server and create the admin user
+
+The first time you run the server, pass `--init-admin <username>` to create the
+database and the initial admin user. You will be prompted to set a password.
+
+```bash
+./bin/quorum-server \
+  --listen :8443 \
+  --cert certs/server.pem \
+  --key certs/server-key.pem \
+  --db quorum.db \
+  --init-admin admin
+```
+
+#### 2. Start the server
+
+Once the admin user exists, start the server normally:
+
+```bash
+./bin/quorum-server \
+  --listen :8443 \
+  --cert certs/server.pem \
+  --key certs/server-key.pem \
+  --db quorum.db
+```
+
+#### 3. Launch the admin client
+
+The admin client is used for managing users and bots. Log in with your admin
+credentials, then create new users and bots.
+
+```bash
+./bin/quorum-admin --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### 4. Launch the terminal (TUI) client
+
+Pass the server address and CA certificate, then provide valid credentials when
+prompted.
+
+```bash
+./bin/quorum-client --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### 5. Launch the GUI client
+
+The GUI client can be started without arguments and configured from within the
+interface (you will need to provide the path to `certs/ca.pem`):
+
+```bash
+./bin/quorum-gui
+```
+
+You can also pass `--addr` and `--ca` to pre-fill the connection defaults:
+
+```bash
+./bin/quorum-gui --addr localhost:8443 --ca certs/ca.pem
+```
+
+#### Bot Example
+
+```sh
+# Create a bot in quorum-admin: tab [2] Bots → 'a' → copy the qbot_ token that is shown
+export QUORUM_BOT_TOKEN=qbot_...
+go run ./examples/dicebot --ca certs/ca.pem --channel general
+# then in a client: /roll 2d6
+```
+
+
 ## Documentation
 
-Deeper, focused docs live in [docs/](docs/):
+Additional docs live in [docs/](docs/):
 
 - [docs/architecture.md](docs/architecture.md) — components, the gRPC services,
   the hub, data flow, and the SQLite schema (for contributors).
