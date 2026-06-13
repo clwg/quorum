@@ -146,7 +146,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		h := max(6, m.height-11)
+		h := max(6, m.height-7)
 		m.usersTable.SetHeight(h)
 		m.botsTable.SetHeight(h)
 		tw := max(48, m.width-2)
@@ -689,12 +689,23 @@ func (m *Model) listView() string {
 		help = [][2]string{{"1/2", "switch"}, {"j/k", "move"}, {"a", "new bot"}, {"t", "rotate token"}, {"x", "delete"}, {"R", "refresh"}, {"q", "quit"}}
 	}
 
-	middle := []string{tabs, "", body}
+	// Reserve the note row even when empty so the table height — and thus the
+	// footer's position — stays fixed as transient notes come and go.
+	note := ""
 	if m.note != "" {
-		middle = append(middle, "", m.noteStyled())
+		note = m.noteStyled()
 	}
-	content := contentStyle.Render(lipgloss.JoinVertical(lipgloss.Left, middle...))
-	return lipgloss.JoinVertical(lipgloss.Left, m.headerBar(), content, m.footerBar(help))
+	content := contentStyle.Render(lipgloss.JoinVertical(lipgloss.Left, tabs, "", body, "", note))
+
+	// Pin the footer to the bottom: fill whatever vertical space the header,
+	// content and footer don't already occupy.
+	header, footer := m.headerBar(), m.footerBar(help)
+	parts := []string{header, content}
+	for fill := m.height - lipgloss.Height(header) - lipgloss.Height(content) - lipgloss.Height(footer); fill > 0; fill-- {
+		parts = append(parts, "")
+	}
+	parts = append(parts, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 // headerBar draws the full-width title bar: product name on the left, the
