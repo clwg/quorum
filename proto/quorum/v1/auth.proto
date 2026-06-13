@@ -4,7 +4,7 @@ package quorum.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+option go_package = "github.com/clwg/quorum/gen/quorum/v1;quorumv1";
 
 // AuthService handles login, logout, and the E2EE identity-key directory.
 // Login is the only RPC in the system that does not require a bearer token.

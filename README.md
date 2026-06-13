@@ -4,6 +4,9 @@ A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
 
+![ui](screenshots/tui.png)
+![gui](screenshots/gui.png)
+
 ## Components
 
 - **cmd/quorum-server** - headless CLI server. Flags: `--listen`, `--cert`,

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 )
 
 // conversation is a single channel or DM thread in the sidebar, mirroring the

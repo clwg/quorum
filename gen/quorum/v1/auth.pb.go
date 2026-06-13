@@ -631,7 +631,7 @@ const file_quorum_v1_auth_proto_rawDesc = "" +
 	"\x0eChangePassword\x12 .quorum.v1.ChangePasswordRequest\x1a!.quorum.v1.ChangePasswordResponse\x12=\n" +
 	"\x06WhoAmI\x12\x18.quorum.v1.WhoAmIRequest\x1a\x19.quorum.v1.WhoAmIResponse\x12a\n" +
 	"\x12PublishIdentityKey\x12$.quorum.v1.PublishIdentityKeyRequest\x1a%.quorum.v1.PublishIdentityKeyResponse\x12U\n" +
-	"\x0eGetIdentityKey\x12 .quorum.v1.GetIdentityKeyRequest\x1a!.quorum.v1.GetIdentityKeyResponseB1Z/github.com/layer8/quorum/gen/quorum/v1;quorumv1b\x06proto3"
+	"\x0eGetIdentityKey\x12 .quorum.v1.GetIdentityKeyRequest\x1a!.quorum.v1.GetIdentityKeyResponseB1Z/github.com/clwg/quorum/gen/quorum/v1;quorumv1b\x06proto3"
 
 var (
 	file_quorum_v1_auth_proto_rawDescOnce sync.Once

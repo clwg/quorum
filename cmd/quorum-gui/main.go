@@ -6,7 +6,7 @@ package main
 import (
 	"flag"
 
-	"github.com/layer8/quorum/internal/gui"
+	"github.com/clwg/quorum/internal/gui"
 )
 
 func main() {

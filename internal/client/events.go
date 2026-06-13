@@ -1,6 +1,6 @@
 package client
 
-import quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
+import quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 
 // Event is anything delivered to the UI through Run's callback.
 type Event any

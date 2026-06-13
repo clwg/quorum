@@ -4,7 +4,7 @@ package quorum.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+option go_package = "github.com/clwg/quorum/gen/quorum/v1;quorumv1";
 
 // ChatService is the realtime core: unary sends plus a single
 // server-streaming Subscribe that delivers all events to a client.

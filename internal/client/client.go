@@ -23,8 +23,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/e2ee"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/e2ee"
 )
 
 type Config struct {

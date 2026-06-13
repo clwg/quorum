@@ -1,4 +1,4 @@
-module github.com/layer8/quorum
+module github.com/clwg/quorum
 
 go 1.26.3
 

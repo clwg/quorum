@@ -6,7 +6,7 @@ package hub
 import (
 	"sync"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 )
 
 const subscriberBuffer = 256

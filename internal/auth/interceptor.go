@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/layer8/quorum/internal/store"
+	"github.com/clwg/quorum/internal/store"
 )
 
 // SessionTTL is the sliding expiry window for user sessions.

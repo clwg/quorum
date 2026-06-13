@@ -9,10 +9,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/auth"
-	"github.com/layer8/quorum/internal/hub"
-	"github.com/layer8/quorum/internal/store"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/auth"
+	"github.com/clwg/quorum/internal/hub"
+	"github.com/clwg/quorum/internal/store"
 )
 
 // AdminService manages users and bots. Every RPC here is reachable only

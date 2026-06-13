@@ -22,12 +22,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/auth"
-	"github.com/layer8/quorum/internal/client"
-	"github.com/layer8/quorum/internal/hub"
-	"github.com/layer8/quorum/internal/server"
-	"github.com/layer8/quorum/internal/store"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/auth"
+	"github.com/clwg/quorum/internal/client"
+	"github.com/clwg/quorum/internal/hub"
+	"github.com/clwg/quorum/internal/server"
+	"github.com/clwg/quorum/internal/store"
 )
 
 // testServer runs a real TLS gRPC server on a loopback port so the full

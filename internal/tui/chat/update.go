@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/layer8/quorum/internal/client"
+	"github.com/clwg/quorum/internal/client"
 )
 
 func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {

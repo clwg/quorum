@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/layer8/quorum/sdk/bot"
+	"github.com/clwg/quorum/sdk/bot"
 )
 
 func main() {
