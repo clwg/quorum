@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -377,22 +378,36 @@ func (a *App) promptChangePassword() {
 	d.Show()
 }
 
-// showHelp lists the client's slash commands in a dialog.
+// showHelp lists the client's slash commands in a dialog. Commands and their
+// descriptions are laid out in a two-column form grid (the command monospaced),
+// so the columns line up regardless of the theme's proportional font — unlike a
+// single space-padded text block, which doesn't align.
 func (a *App) showHelp() {
-	help := strings.Join([]string{
-		"/create <name>   create a channel and open it",
-		"/join <name>     join an existing channel",
-		"/leave           leave the current channel",
-		"/dm <user>       open an end-to-end-encrypted direct message",
-		"/passwd          change your password (opens a private form)",
-		"/commands        list commands offered by bots",
-		"/help            show this help",
-		"/quit            exit quorum",
-		"",
-		"Click a channel or user in the sidebar to open it.",
-		"The + above CHANNELS creates a new channel.",
-	}, "\n")
-	dialog.ShowInformation("Quorum commands", help, a.win)
+	commands := [][2]string{
+		{"/create <name>", "create a channel and open it"},
+		{"/join <name>", "join an existing channel"},
+		{"/leave", "leave the current channel"},
+		{"/dm <user>", "open an end-to-end-encrypted direct message"},
+		{"/passwd", "change your password (opens a private form)"},
+		{"/commands", "list commands offered by bots"},
+		{"/help", "show this help"},
+		{"/quit", "exit quorum"},
+	}
+	grid := container.New(layout.NewFormLayout())
+	for _, c := range commands {
+		cmd := widget.NewLabelWithStyle(c[0], fyne.TextAlignLeading, fyne.TextStyle{Monospace: true})
+		grid.Add(cmd)
+		grid.Add(widget.NewLabel(c[1]))
+	}
+
+	tips := widget.NewLabel("Click a channel or user in the sidebar to open it.\n" +
+		"The + above CHANNELS creates a new channel.")
+	tips.Wrapping = fyne.TextWrapWord
+
+	content := container.NewVBox(grid, widget.NewSeparator(), tips)
+	d := dialog.NewCustom("Quorum commands", "Close", content, a.win)
+	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
+	d.Show()
 }
 
 // messageRow renders one scrollback entry as a word-wrapped rich-text row.
