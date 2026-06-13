@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package quorum.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+
+// AdminService is reachable only by identities with role=admin
+// (enforced by the auth interceptor).
+service AdminService {
+  rpc ListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc SetUserDisabled(SetUserDisabledRequest) returns (SetUserDisabledResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+
+  // CreateBot returns the plaintext bot token exactly once; only its hash
+  // is stored server-side.
+  rpc CreateBot(CreateBotRequest) returns (CreateBotResponse);
+  rpc ListBots(ListBotsRequest) returns (ListBotsResponse);
+  rpc RevokeBotToken(RevokeBotTokenRequest) returns (RevokeBotTokenResponse);
+}
+
+message AdminUser {
+  string id = 1;
+  string username = 2;
+  string role = 3;
+  bool disabled = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message AdminListUsersRequest {}
+message AdminListUsersResponse {
+  repeated AdminUser users = 1;
+}
+
+message CreateUserRequest {
+  string username = 1;
+  string password = 2;
+  string role = 3; // "user" or "admin"
+}
+message CreateUserResponse {
+  AdminUser user = 1;
+}
+
+message SetUserDisabledRequest {
+  string user_id = 1;
+  bool disabled = 2;
+}
+message SetUserDisabledResponse {}
+
+message DeleteUserRequest {
+  string user_id = 1;
+}
+message DeleteUserResponse {}
+
+message ResetPasswordRequest {
+  string user_id = 1;
+  string new_password = 2;
+}
+message ResetPasswordResponse {}
+
+message Bot {
+  string user_id = 1;
+  string username = 2;
+  string owner_id = 3;
+  string owner_name = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreateBotRequest {
+  string username = 1;
+}
+message CreateBotResponse {
+  Bot bot = 1;
+  string token = 2; // plaintext, shown once
+}
+
+message ListBotsRequest {}
+message ListBotsResponse {
+  repeated Bot bots = 1;
+}
+
+message RevokeBotTokenRequest {
+  string user_id = 1;
+}
+message RevokeBotTokenResponse {
+  string new_token = 1; // rotated token, shown once
+}

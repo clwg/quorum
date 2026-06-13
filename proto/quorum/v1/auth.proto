@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package quorum.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+
+// AuthService handles login, logout, and the E2EE identity-key directory.
+// Login is the only RPC in the system that does not require a bearer token.
+service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // WhoAmI resolves the caller's identity from their bearer token (used
+  // by bots, which authenticate with a token instead of Login).
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse);
+
+  // PublishIdentityKey registers the caller's long-term X25519 public key
+  // so other users can look it up to establish E2EE sessions.
+  rpc PublishIdentityKey(PublishIdentityKeyRequest) returns (PublishIdentityKeyResponse);
+  rpc GetIdentityKey(GetIdentityKeyRequest) returns (GetIdentityKeyResponse);
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string user_id = 2;
+  string username = 3;
+  string role = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message LogoutRequest {}
+message LogoutResponse {}
+
+message WhoAmIRequest {}
+message WhoAmIResponse {
+  string user_id = 1;
+  string username = 2;
+  string role = 3;
+}
+
+message PublishIdentityKeyRequest {
+  bytes x25519_public_key = 1; // 32 bytes
+}
+message PublishIdentityKeyResponse {}
+
+message GetIdentityKeyRequest {
+  string user_id = 1;
+}
+message GetIdentityKeyResponse {
+  string user_id = 1;
+  string username = 2;
+  bytes x25519_public_key = 3; // 32 bytes; empty if the user has not published one
+}

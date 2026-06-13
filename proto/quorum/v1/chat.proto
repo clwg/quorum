@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package quorum.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+
+// ChatService is the realtime core: unary sends plus a single
+// server-streaming Subscribe that delivers all events to a client.
+service ChatService {
+  // Subscribe opens the realtime event stream. One active stream per user;
+  // a newer Subscribe replaces (kicks) the previous one.
+  rpc Subscribe(SubscribeRequest) returns (stream ServerEvent);
+
+  rpc SendChannelMessage(SendChannelMessageRequest) returns (SendChannelMessageResponse);
+  rpc CreateChannel(CreateChannelRequest) returns (Channel);
+  rpc JoinChannel(JoinChannelRequest) returns (JoinChannelResponse);
+  rpc LeaveChannel(LeaveChannelRequest) returns (LeaveChannelResponse);
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+  rpc GetChannelHistory(GetChannelHistoryRequest) returns (GetChannelHistoryResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  // SendDirect relays an opaque E2EE envelope to a connected recipient.
+  // The server never persists these and cannot read the payload.
+  rpc SendDirect(SendDirectRequest) returns (SendDirectResponse);
+
+  // RegisterCommands lets a bot declare its slash commands. Used only for
+  // /help discovery and duplicate warnings; routing is client-side.
+  rpc RegisterCommands(RegisterCommandsRequest) returns (RegisterCommandsResponse);
+}
+
+message SubscribeRequest {}
+
+message ServerEvent {
+  oneof event {
+    ChannelMessage channel_message = 1;
+    DirectEnvelope direct_envelope = 2;
+    PresenceEvent presence = 3;
+    ChannelEvent channel_event = 4;
+    SystemNotice system = 5;
+  }
+}
+
+message Channel {
+  string id = 1;
+  string name = 2;
+  string topic = 3;
+  bool is_member = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ChannelMessage {
+  int64 id = 1; // server-assigned, monotonic per channel; pagination cursor
+  string channel_id = 2;
+  string sender_id = 3;
+  string sender_name = 4;
+  string body = 5;
+  google.protobuf.Timestamp sent_at = 6;
+}
+
+// DirectEnvelope carries E2EE handshake and message frames between two
+// users. The payload is opaque to the server. sender_id is always
+// overwritten server-side from the authenticated identity.
+message DirectEnvelope {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_SESSION_INIT = 1;    // payload = initiator ephemeral X25519 public key
+    TYPE_SESSION_ACCEPT = 2;  // payload = responder ephemeral X25519 public key
+    TYPE_MESSAGE = 3;         // payload = ChaCha20-Poly1305 ciphertext
+    TYPE_SESSION_CLOSE = 4;
+  }
+  Type type = 1;
+  string sender_id = 2;
+  string sender_name = 3;
+  string recipient_id = 4;
+  bytes session_id = 5; // 16 bytes, derived from the handshake
+  bytes payload = 6;
+  uint64 counter = 7; // AEAD nonce counter, also bound inside the AAD
+}
+
+message PresenceEvent {
+  string user_id = 1;
+  string username = 2;
+  bool online = 3;
+}
+
+message ChannelEvent {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_CREATED = 1;
+    TYPE_MEMBER_JOINED = 2;
+    TYPE_MEMBER_LEFT = 3;
+  }
+  Type type = 1;
+  Channel channel = 2;
+  string user_id = 3;
+  string username = 4;
+}
+
+message SystemNotice {
+  string text = 1;
+  google.protobuf.Timestamp server_time = 2;
+}
+
+message SendChannelMessageRequest {
+  string channel_id = 1;
+  string body = 2;
+}
+message SendChannelMessageResponse {
+  int64 message_id = 1;
+}
+
+message CreateChannelRequest {
+  string name = 1;
+  string topic = 2;
+}
+
+message JoinChannelRequest {
+  string channel_id = 1;
+}
+message JoinChannelResponse {
+  Channel channel = 1;
+}
+
+message LeaveChannelRequest {
+  string channel_id = 1;
+}
+message LeaveChannelResponse {}
+
+message ListChannelsRequest {}
+message ListChannelsResponse {
+  repeated Channel channels = 1;
+}
+
+message GetChannelHistoryRequest {
+  string channel_id = 1;
+  int64 before_id = 2; // 0 = from latest
+  int32 limit = 3;     // server caps this
+}
+message GetChannelHistoryResponse {
+  repeated ChannelMessage messages = 1; // ascending by id
+}
+
+message ListUsersRequest {}
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message User {
+  string id = 1;
+  string username = 2;
+  string role = 3;
+  bool online = 4;
+}
+
+message SendDirectRequest {
+  DirectEnvelope envelope = 1;
+}
+message SendDirectResponse {}
+
+message RegisterCommandsRequest {
+  repeated CommandSpec commands = 1;
+}
+message CommandSpec {
+  string name = 1; // without leading slash
+  string help = 2;
+}
+message RegisterCommandsResponse {
+  repeated string duplicate_names = 1; // already claimed by another bot
+}
