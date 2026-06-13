@@ -147,7 +147,7 @@ func deriveKeys(hctx Context, ourIK, ourEph *ecdh.PrivateKey, peerIK, peerEph *e
 	if err != nil {
 		return nil, fmt.Errorf("%w: dh1: %v", ErrHandshakeFailed, err)
 	}
-	// dh2: X25519(ikA, epkB); dh3: X25519(epkA, ikB) — fixed A/B roles.
+	// dh2: X25519(ikA, epkB); dh3: X25519(epkA, ikB) - fixed A/B roles.
 	var dh2, dh3 []byte
 	if weAreInitiator {
 		dh2, err = ourIK.ECDH(peerEph)
@@ -221,7 +221,7 @@ func deriveKeys(hctx Context, ourIK, ourEph *ecdh.PrivateKey, peerIK, peerEph *e
 
 // Session is an established E2EE channel with one peer. Sessions are only
 // created by a completed handshake; there is no other constructor and no
-// way to rekey one — open a new session instead.
+// way to rekey one - open a new session instead.
 type Session struct {
 	id        [16]byte
 	localID   string // our user ID (AAD sender for Seal)

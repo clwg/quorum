@@ -60,12 +60,12 @@ type actionDoneMsg struct {
 type Model struct {
 	client *client.Client
 
-	mode     mode
-	tab      tab
-	width    int
-	height   int
-	note     string
-	noteErr  bool
+	mode    mode
+	tab     tab
+	width   int
+	height  int
+	note    string
+	noteErr bool
 
 	// login
 	inputs     []textinput.Model
@@ -111,9 +111,9 @@ func New(c *client.Client) *Model {
 	}), table.WithFocused(true), table.WithHeight(12))
 
 	return &Model{
-		client: c,
-		mode:   modeLogin,
-		inputs: []textinput.Model{username, password},
+		client:     c,
+		mode:       modeLogin,
+		inputs:     []textinput.Model{username, password},
 		usersTable: ut,
 		botsTable:  bt,
 	}
@@ -551,7 +551,7 @@ func (m *Model) View() string {
 		return boxStyle.Render(fmt.Sprintf("Delete %s? This cannot be undone.\n\n%s",
 			titleStyle.Render(m.confirmName), dimStyle.Render("y to confirm · any other key to cancel")))
 	case modeToken:
-		return tokenStyle.Render(fmt.Sprintf("Bot token (copy it now — it is not stored):\n\n  %s\n\nEnter to dismiss", m.shownToken))
+		return tokenStyle.Render(fmt.Sprintf("Bot token (copy it now - it is not stored):\n\n  %s\n\nEnter to dismiss", m.shownToken))
 	}
 
 	tabs := lipgloss.JoinHorizontal(lipgloss.Top,

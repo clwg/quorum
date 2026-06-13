@@ -194,8 +194,8 @@ func (a *App) channelRowText(key string) string {
 	return name
 }
 
-// dmRowSegments renders a DM's sidebar row: a presence bullet — green and
-// filled when the peer is online, hollow otherwise — the name, and an unread
+// dmRowSegments renders a DM's sidebar row: a presence bullet - green and
+// filled when the peer is online, hollow otherwise - the name, and an unread
 // badge.
 func dmRowSegments(c *conversation) []widget.RichTextSegment {
 	bullet, bulletColor := "○ ", theme.ColorNameForeground

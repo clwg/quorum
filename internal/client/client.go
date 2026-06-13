@@ -266,7 +266,7 @@ func (c *Client) emit(ev Event) {
 }
 
 // Run pumps the Subscribe stream, reconnecting with backoff until ctx is
-// cancelled. All inbound traffic — including decrypted DMs — is delivered
+// cancelled. All inbound traffic - including decrypted DMs - is delivered
 // through onEvent; the function blocks.
 func (c *Client) Run(ctx context.Context, onEvent func(Event)) {
 	c.onEvent = onEvent

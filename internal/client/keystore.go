@@ -80,14 +80,14 @@ func openPinStore(dataDir, serverID, username string) (*pinStore, error) {
 
 // Check verifies a peer's identity key against the pin, pinning it on
 // first use. It returns an error on mismatch (possible MITM or key
-// rotation — must be resolved out-of-band).
+// rotation - must be resolved out-of-band).
 func (ps *pinStore) Check(peerID, peerName string, publicKey []byte) error {
 	enc := base64.StdEncoding.EncodeToString(publicKey)
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if cur, ok := ps.pins[peerID]; ok {
 		if cur.PublicKey != enc {
-			return fmt.Errorf("identity key for %s changed (pinned %s, got %s) — verify out-of-band, then remove the entry from %s to re-pin",
+			return fmt.Errorf("identity key for %s changed (pinned %s, got %s) - verify out-of-band, then remove the entry from %s to re-pin",
 				peerName,
 				e2ee.Fingerprint(mustB64(cur.PublicKey)),
 				e2ee.Fingerprint(publicKey),

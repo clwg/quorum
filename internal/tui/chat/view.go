@@ -148,8 +148,8 @@ func (m *Model) mainView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, m.statusBar())
 }
 
-// sidebarView draws two independently scrolled panels — channels on top, DMs
-// below — separated by a blank line. Each panel emits exactly its allotted
+// sidebarView draws two independently scrolled panels - channels on top, DMs
+// below - separated by a blank line. Each panel emits exactly its allotted
 // number of rows so the sidebar's height is fixed regardless of how many
 // conversations exist, which keeps overflow from pushing the body off-screen.
 func (m *Model) sidebarView() string {
@@ -369,8 +369,8 @@ func renderMessage(msg message, w int) string {
 
 // statusBar draws the bottom bar: a transient note on the left, the active DM's
 // key plus the local user and connection state pinned to the right. Every
-// segment carries the bar background explicitly — a foreground-only style would
-// reset to the terminal's default (black) background between segments — and the
+// segment carries the bar background explicitly - a foreground-only style would
+// reset to the terminal's default (black) background between segments - and the
 // bar uses ASCII only so an ambiguous-width glyph can never wrap it.
 func (m *Model) statusBar() string {
 	w := max(0, m.width)

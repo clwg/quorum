@@ -6,20 +6,20 @@ direct messages; a GUI client; a terminal client; an admin terminal UI; and a bo
 
 ## Components
 
-- **cmd/quorum-server** — headless CLI server. Flags: `--listen`, `--cert`,
+- **cmd/quorum-server** - headless CLI server. Flags: `--listen`, `--cert`,
   `--key`, `--db`, `--init-admin <name>`, `--log-level`.
-- **cmd/quorum-client** — bubbletea chat TUI. Sidebar of channels and DMs, a
+- **cmd/quorum-client** - bubbletea chat TUI. Sidebar of channels and DMs, a
   message viewport, an input line, a status bar with connection state and
   E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
   `/dm <user>`, `/passwd` (change your password), `/commands` (list bot
   commands), `/help`, `/quit`.
-- **cmd/quorum-gui** — Fyne desktop chat client; a graphical peer of
+- **cmd/quorum-gui** - Fyne desktop chat client; a graphical peer of
   quorum-client driving the same `internal/client` core.
-- **cmd/quorum-admin** — bubbletea admin TUI over the role-gated AdminService:
+- **cmd/quorum-admin** - bubbletea admin TUI over the role-gated AdminService:
   add/disable/delete users, reset passwords, create/rotate/delete bots.
-- **sdk/bot** — Go SDK for writing bots; **examples/dicebot** is a worked
+- **sdk/bot** - Go SDK for writing bots; **examples/dicebot** is a worked
   example.
-- **cmd/quorum-gencert** — generates a dev CA and server certificate. Not for
+- **cmd/quorum-gencert** - generates a dev CA and server certificate. Not for
   production.
 
 ## Quickstart
@@ -143,13 +143,13 @@ go run ./examples/dicebot --ca certs/ca.pem --channel general
 
 Additional docs live in [docs/](docs/):
 
-- [docs/architecture.md](docs/architecture.md) — components, the gRPC services,
+- [docs/architecture.md](docs/architecture.md) - components, the gRPC services,
   the hub, data flow, and the SQLite schema (for contributors).
-- [docs/operations.md](docs/operations.md) — running a server: flags, TLS,
+- [docs/operations.md](docs/operations.md) - running a server: flags, TLS,
   backups, rate limits, hardening, troubleshooting (for operators).
-- [docs/e2ee.md](docs/e2ee.md) — the DM encryption protocol spec and threat
+- [docs/e2ee.md](docs/e2ee.md) - the DM encryption protocol spec and threat
   model.
-- [docs/bot-sdk.md](docs/bot-sdk.md) — writing bots with `sdk/bot`.
+- [docs/bot-sdk.md](docs/bot-sdk.md) - writing bots with `sdk/bot`.
 
 ## Build
 
@@ -207,7 +207,7 @@ already-pinned user; credential theft via the database (only hashes are
 stored); sender spoofing; DM replay.
 
 **Not** protected: a malicious server performing a MITM on the *first* contact
-between two users (TOFU pins the attacker's key) — this is why fingerprints
+between two users (TOFU pins the attacker's key) - this is why fingerprints
 are shown and must be compared out-of-band for high-stakes conversations;
 traffic-analysis metadata (who talks to whom, when) is visible to the server;
 group channel messages are stored server-side and readable by the server

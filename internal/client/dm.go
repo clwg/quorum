@@ -16,8 +16,8 @@ import (
 //
 // Fail-closed rules (see plan §crypto constraints):
 //   - Queued plaintext lives only in memory and is flushed only after the
-//     handshake completes. Any failure — handshake error, peer offline,
-//     TOFU mismatch — drops the queue; nothing is ever sent another way.
+//     handshake completes. Any failure - handshake error, peer offline,
+//     TOFU mismatch - drops the queue; nothing is ever sent another way.
 //   - A TOFU mismatch blocks the handshake itself (no session, no send).
 //   - Simultaneous SESSION_INITs resolve deterministically: the peer with
 //     the lexicographically lower user ID is the rightful initiator; the
@@ -187,7 +187,7 @@ func (m *dmManager) dropPending(peerID string) {
 
 // peerOffline drops our session and any in-flight handshake with a peer
 // that has gone offline. When the peer reconnects it resets its own E2EE
-// state (see reset), so our session is already dead — the same fail-closed
+// state (see reset), so our session is already dead - the same fail-closed
 // rule reset() applies to gaps in our own stream, applied to the peer's.
 // The next send starts a fresh handshake; nothing stale is ever sealed.
 func (m *dmManager) peerOffline(peerID, peerName string) {
@@ -253,7 +253,7 @@ func (m *dmManager) handleInit(ctx context.Context, env *quorumv1.DirectEnvelope
 			return
 		}
 		// They are rightful: abandon our handshake but keep the queued
-		// text — it will flush once their session establishes.
+		// text - it will flush once their session establishes.
 		queued := pend.queue
 		delete(m.pending, peerID)
 		m.mu.Unlock()

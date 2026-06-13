@@ -12,7 +12,7 @@ import (
 
 // TestIncomingDMSeedsPresenceFromDirectory covers a returning user: an
 // incoming DM creates the conversation for a peer who is already online.
-// That peer's presence did not change, so it emits no presence event — the
+// That peer's presence did not change, so it emits no presence event - the
 // online indicator can only come from the directory snapshot in m.users.
 func TestIncomingDMSeedsPresenceFromDirectory(t *testing.T) {
 	m := New(nil)
@@ -57,7 +57,7 @@ func TestUnknownUserPresenceRefreshesRoster(t *testing.T) {
 	}
 }
 
-// TestPasswdOpensModal confirms /passwd is handled locally — it opens the
+// TestPasswdOpensModal confirms /passwd is handled locally - it opens the
 // three-field modal instead of falling through to be sent into the active
 // channel, which would leak a typed password.
 func TestPasswdOpensModal(t *testing.T) {

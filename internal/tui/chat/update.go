@@ -66,7 +66,7 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, u := range msg.users {
 			m.users[u.GetId()] = u
 			// Skip yourself and bots. Bots publish no identity key, so there is
-			// no E2EE session to open with them — they can't be DM targets.
+			// no E2EE session to open with them - they can't be DM targets.
 			if u.GetId() == m.client.UserID() || u.GetRole() == "bot" {
 				continue
 			}

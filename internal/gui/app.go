@@ -103,7 +103,7 @@ func dialAndLogin(ctx context.Context, addr, caFile, dataDir, username, password
 // showMain swaps the window to the chat UI and starts the event pump.
 func (a *App) showMain() {
 	a.win.SetContent(a.buildMain())
-	a.win.SetTitle("Quorum — " + a.client.Username())
+	a.win.SetTitle("Quorum - " + a.client.Username())
 	a.win.Canvas().Focus(a.input)
 	a.updateStatus()
 	a.startPump()
