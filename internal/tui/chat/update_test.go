@@ -3,6 +3,7 @@ package chat
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
@@ -53,6 +54,80 @@ func TestUnknownUserPresenceRefreshesRoster(t *testing.T) {
 	}
 	if _, cmd := m.handleEvent(client.PresenceEvent{Presence: &quorumv1.PresenceEvent{UserId: "ghost", Online: false}}); cmd != nil {
 		t.Fatalf("unknown user going offline should issue no command")
+	}
+}
+
+// TestPasswdOpensModal confirms /passwd is handled locally — it opens the
+// three-field modal instead of falling through to be sent into the active
+// channel, which would leak a typed password.
+func TestPasswdOpensModal(t *testing.T) {
+	m := New(nil)
+	m.ensureConv(chKey("c"), "c", "#general", false)
+	m.setActive(chKey("c"))
+
+	m.submit("/passwd")
+	if m.pw == nil {
+		t.Fatal("/passwd should open the password modal")
+	}
+	if len(m.pw.inputs) != 3 {
+		t.Fatalf("modal wants 3 fields, got %d", len(m.pw.inputs))
+	}
+	for i, in := range m.pw.inputs {
+		if in.EchoMode != textinput.EchoPassword {
+			t.Fatalf("field %d should be masked", i)
+		}
+	}
+}
+
+// TestPasswdFormValidation walks the local pre-flight checks. Each invalid case
+// must keep the modal open with an error and must not fire the RPC.
+func TestPasswdFormValidation(t *testing.T) {
+	m := New(nil)
+	m.openPwForm()
+	set := func(cur, next, confirm string) {
+		m.pw.inputs[0].SetValue(cur)
+		m.pw.inputs[1].SetValue(next)
+		m.pw.inputs[2].SetValue(confirm)
+		m.pw.err = ""
+	}
+	cases := []struct {
+		name             string
+		cur, next, confm string
+	}{
+		{"empty current", "", "newpassword1", "newpassword1"},
+		{"short new", "password123", "short", "short"},
+		{"mismatch", "password123", "newpassword1", "different123"},
+		{"same as current", "password123", "password123", "password123"},
+	}
+	for _, tc := range cases {
+		set(tc.cur, tc.next, tc.confm)
+		m.submitPwForm()
+		if m.pw == nil {
+			t.Fatalf("%s: modal should stay open", tc.name)
+		}
+		if m.pw.err == "" {
+			t.Fatalf("%s: want a validation error", tc.name)
+		}
+		if m.pw.busy {
+			t.Fatalf("%s: must not start the RPC", tc.name)
+		}
+	}
+}
+
+// TestPasswdFormEscCloses checks Esc dismisses the modal, while an unrelated
+// message is not consumed so background state keeps updating behind it.
+func TestPasswdFormEscCloses(t *testing.T) {
+	m := New(nil)
+	m.openPwForm()
+
+	if _, _, handled := m.updatePwForm(joinedMsg{}); handled {
+		t.Fatal("modal should not consume unrelated messages")
+	}
+	if _, _, handled := m.updatePwForm(tea.KeyMsg{Type: tea.KeyEsc}); !handled {
+		t.Fatal("esc should be handled by the modal")
+	}
+	if m.pw != nil {
+		t.Fatal("esc should close the modal")
 	}
 }
 

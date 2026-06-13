@@ -12,6 +12,11 @@ service AuthService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
 
+  // ChangePassword lets the authenticated caller replace their own password,
+  // proving ownership with the current one. Self-service counterpart to the
+  // admin-only AdminService.ResetPassword.
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
   // WhoAmI resolves the caller's identity from their bearer token (used
   // by bots, which authenticate with a token instead of Login).
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse);
@@ -37,6 +42,12 @@ message LoginResponse {
 
 message LogoutRequest {}
 message LogoutResponse {}
+
+message ChangePasswordRequest {
+  string old_password = 1;
+  string new_password = 2;
+}
+message ChangePasswordResponse {}
 
 message WhoAmIRequest {}
 message WhoAmIResponse {

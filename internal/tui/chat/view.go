@@ -74,7 +74,47 @@ func (m *Model) View() string {
 	if !m.loggedIn {
 		return m.loginView()
 	}
+	if m.pw != nil {
+		return m.passwordView()
+	}
 	return m.mainView()
+}
+
+// passwordView draws the /passwd modal: a centred, bordered card with the three
+// masked fields, an error or hint line, and key reminders. It replaces the chat
+// view while open (like the login screen) so it reads as a deliberate, modal
+// action rather than something that fits in the message flow.
+func (m *Model) passwordView() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render("Change password"))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("Verify with your current password, then set a new one."))
+	b.WriteString("\n\n")
+	for i, in := range m.pw.inputs {
+		caret := "  "
+		if i == m.pw.focus {
+			caret = promptStyle.Render("› ")
+		}
+		b.WriteString(caret)
+		b.WriteString(in.View())
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+	switch {
+	case m.pw.busy:
+		b.WriteString(dimStyle.Render("changing…"))
+	case m.pw.err != "":
+		b.WriteString(errStyle.Render("✗ " + m.pw.err))
+	default:
+		b.WriteString(dimStyle.Render("Tab to switch · Enter to save · Esc to cancel"))
+	}
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).
+		Padding(1, 3).Render(b.String())
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	}
+	return box
 }
 
 func (m *Model) loginView() string {

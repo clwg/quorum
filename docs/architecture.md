@@ -38,8 +38,9 @@ reconnect, and (for the two human clients) the E2EE session manager.
 - **`cmd/quorum-client`** — the chat TUI ([`internal/tui/chat`](../internal/tui/chat)),
   a bubbletea app: channel/DM sidebar, message viewport, input line, status
   bar with connection state and E2EE fingerprints. Slash commands are parsed
-  client-side (`/create`, `/join`, `/leave`, `/dm`, `/commands`, `/help`,
-  `/quit`). `/help` is rendered locally; `/commands` asks the server for the
+  client-side (`/create`, `/join`, `/leave`, `/dm`, `/passwd`, `/commands`,
+  `/help`, `/quit`). `/help` is rendered locally; `/passwd` opens a modal form
+  that calls `AuthService.ChangePassword`; `/commands` asks the server for the
   bot commands registered in this channel.
 - **`cmd/quorum-admin`** — the admin TUI ([`internal/tui/admin`](../internal/tui/admin)),
   driving `AdminService`.
@@ -60,6 +61,12 @@ does not require a bearer token. Notable details:
 - `Login` is rate-limited per username (~5/min, burst 5) and runs a dummy
   argon2 verification when the user doesn't exist, so present and absent
   usernames take comparable time. Bots cannot log in (they have no password).
+- `ChangePassword` is the self-service counterpart to the admin-only
+  `AdminService.ResetPassword`: the caller proves ownership with their current
+  password and sets a new one. Unlike the admin reset (which kills the target's
+  sessions), it leaves existing sessions intact, so the user is not logged out
+  of the client they changed it from. Bots are rejected (they have tokens, not
+  passwords).
 - `WhoAmI` resolves identity from the bearer token; bots call this instead of
   `Login`.
 - `PublishIdentityKey` / `GetIdentityKey` are the X25519 directory used to

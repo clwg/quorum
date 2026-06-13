@@ -349,6 +349,13 @@ func (a *App) submit(text string) {
 			}
 			a.openDM(fields[1])
 			return
+		case "/passwd":
+			// Open a dedicated dialog rather than reading a password from the
+			// message line: nothing is sent until the user fills it in and
+			// confirms, so a stray "/passwd" can't change anything or leak into
+			// a channel.
+			a.promptChangePassword()
+			return
 		}
 		// Unknown slash commands (a bot's own command, or /commands) fall
 		// through to the channel so bots and the server can see them.

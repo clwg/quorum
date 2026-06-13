@@ -222,6 +222,94 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{3}
 }
 
+type ChangePasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OldPassword   string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
+	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_quorum_v1_auth_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_quorum_v1_auth_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ChangePasswordRequest) GetOldPassword() string {
+	if x != nil {
+		return x.OldPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ChangePasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordResponse) Reset() {
+	*x = ChangePasswordResponse{}
+	mi := &file_quorum_v1_auth_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordResponse) ProtoMessage() {}
+
+func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_quorum_v1_auth_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{5}
+}
+
 type WhoAmIRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -230,7 +318,7 @@ type WhoAmIRequest struct {
 
 func (x *WhoAmIRequest) Reset() {
 	*x = WhoAmIRequest{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[4]
+	mi := &file_quorum_v1_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +330,7 @@ func (x *WhoAmIRequest) String() string {
 func (*WhoAmIRequest) ProtoMessage() {}
 
 func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[4]
+	mi := &file_quorum_v1_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +343,7 @@ func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIRequest.ProtoReflect.Descriptor instead.
 func (*WhoAmIRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{6}
 }
 
 type WhoAmIResponse struct {
@@ -269,7 +357,7 @@ type WhoAmIResponse struct {
 
 func (x *WhoAmIResponse) Reset() {
 	*x = WhoAmIResponse{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[5]
+	mi := &file_quorum_v1_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -281,7 +369,7 @@ func (x *WhoAmIResponse) String() string {
 func (*WhoAmIResponse) ProtoMessage() {}
 
 func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[5]
+	mi := &file_quorum_v1_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -294,7 +382,7 @@ func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIResponse.ProtoReflect.Descriptor instead.
 func (*WhoAmIResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{5}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *WhoAmIResponse) GetUserId() string {
@@ -327,7 +415,7 @@ type PublishIdentityKeyRequest struct {
 
 func (x *PublishIdentityKeyRequest) Reset() {
 	*x = PublishIdentityKeyRequest{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[6]
+	mi := &file_quorum_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -339,7 +427,7 @@ func (x *PublishIdentityKeyRequest) String() string {
 func (*PublishIdentityKeyRequest) ProtoMessage() {}
 
 func (x *PublishIdentityKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[6]
+	mi := &file_quorum_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -352,7 +440,7 @@ func (x *PublishIdentityKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishIdentityKeyRequest.ProtoReflect.Descriptor instead.
 func (*PublishIdentityKeyRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PublishIdentityKeyRequest) GetX25519PublicKey() []byte {
@@ -370,7 +458,7 @@ type PublishIdentityKeyResponse struct {
 
 func (x *PublishIdentityKeyResponse) Reset() {
 	*x = PublishIdentityKeyResponse{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[7]
+	mi := &file_quorum_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +470,7 @@ func (x *PublishIdentityKeyResponse) String() string {
 func (*PublishIdentityKeyResponse) ProtoMessage() {}
 
 func (x *PublishIdentityKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[7]
+	mi := &file_quorum_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +483,7 @@ func (x *PublishIdentityKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishIdentityKeyResponse.ProtoReflect.Descriptor instead.
 func (*PublishIdentityKeyResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 type GetIdentityKeyRequest struct {
@@ -407,7 +495,7 @@ type GetIdentityKeyRequest struct {
 
 func (x *GetIdentityKeyRequest) Reset() {
 	*x = GetIdentityKeyRequest{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[8]
+	mi := &file_quorum_v1_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -419,7 +507,7 @@ func (x *GetIdentityKeyRequest) String() string {
 func (*GetIdentityKeyRequest) ProtoMessage() {}
 
 func (x *GetIdentityKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[8]
+	mi := &file_quorum_v1_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -432,7 +520,7 @@ func (x *GetIdentityKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIdentityKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetIdentityKeyRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{8}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetIdentityKeyRequest) GetUserId() string {
@@ -453,7 +541,7 @@ type GetIdentityKeyResponse struct {
 
 func (x *GetIdentityKeyResponse) Reset() {
 	*x = GetIdentityKeyResponse{}
-	mi := &file_quorum_v1_auth_proto_msgTypes[9]
+	mi := &file_quorum_v1_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +553,7 @@ func (x *GetIdentityKeyResponse) String() string {
 func (*GetIdentityKeyResponse) ProtoMessage() {}
 
 func (x *GetIdentityKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_auth_proto_msgTypes[9]
+	mi := &file_quorum_v1_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,7 +566,7 @@ func (x *GetIdentityKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIdentityKeyResponse.ProtoReflect.Descriptor instead.
 func (*GetIdentityKeyResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{9}
+	return file_quorum_v1_auth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetIdentityKeyResponse) GetUserId() string {
@@ -518,7 +606,11 @@ const file_quorum_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse\"\x0f\n" +
+	"\x0eLogoutResponse\"]\n" +
+	"\x15ChangePasswordRequest\x12!\n" +
+	"\fold_password\x18\x01 \x01(\tR\voldPassword\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x18\n" +
+	"\x16ChangePasswordResponse\"\x0f\n" +
 	"\rWhoAmIRequest\"Y\n" +
 	"\x0eWhoAmIResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
@@ -532,10 +624,11 @@ const file_quorum_v1_auth_proto_rawDesc = "" +
 	"\x16GetIdentityKeyResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12*\n" +
-	"\x11x25519_public_key\x18\x03 \x01(\fR\x0fx25519PublicKey2\x81\x03\n" +
+	"\x11x25519_public_key\x18\x03 \x01(\fR\x0fx25519PublicKey2\xd8\x03\n" +
 	"\vAuthService\x12:\n" +
 	"\x05Login\x12\x17.quorum.v1.LoginRequest\x1a\x18.quorum.v1.LoginResponse\x12=\n" +
-	"\x06Logout\x12\x18.quorum.v1.LogoutRequest\x1a\x19.quorum.v1.LogoutResponse\x12=\n" +
+	"\x06Logout\x12\x18.quorum.v1.LogoutRequest\x1a\x19.quorum.v1.LogoutResponse\x12U\n" +
+	"\x0eChangePassword\x12 .quorum.v1.ChangePasswordRequest\x1a!.quorum.v1.ChangePasswordResponse\x12=\n" +
 	"\x06WhoAmI\x12\x18.quorum.v1.WhoAmIRequest\x1a\x19.quorum.v1.WhoAmIResponse\x12a\n" +
 	"\x12PublishIdentityKey\x12$.quorum.v1.PublishIdentityKeyRequest\x1a%.quorum.v1.PublishIdentityKeyResponse\x12U\n" +
 	"\x0eGetIdentityKey\x12 .quorum.v1.GetIdentityKeyRequest\x1a!.quorum.v1.GetIdentityKeyResponseB1Z/github.com/layer8/quorum/gen/quorum/v1;quorumv1b\x06proto3"
@@ -552,34 +645,38 @@ func file_quorum_v1_auth_proto_rawDescGZIP() []byte {
 	return file_quorum_v1_auth_proto_rawDescData
 }
 
-var file_quorum_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_quorum_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_quorum_v1_auth_proto_goTypes = []any{
 	(*LoginRequest)(nil),               // 0: quorum.v1.LoginRequest
 	(*LoginResponse)(nil),              // 1: quorum.v1.LoginResponse
 	(*LogoutRequest)(nil),              // 2: quorum.v1.LogoutRequest
 	(*LogoutResponse)(nil),             // 3: quorum.v1.LogoutResponse
-	(*WhoAmIRequest)(nil),              // 4: quorum.v1.WhoAmIRequest
-	(*WhoAmIResponse)(nil),             // 5: quorum.v1.WhoAmIResponse
-	(*PublishIdentityKeyRequest)(nil),  // 6: quorum.v1.PublishIdentityKeyRequest
-	(*PublishIdentityKeyResponse)(nil), // 7: quorum.v1.PublishIdentityKeyResponse
-	(*GetIdentityKeyRequest)(nil),      // 8: quorum.v1.GetIdentityKeyRequest
-	(*GetIdentityKeyResponse)(nil),     // 9: quorum.v1.GetIdentityKeyResponse
-	(*timestamppb.Timestamp)(nil),      // 10: google.protobuf.Timestamp
+	(*ChangePasswordRequest)(nil),      // 4: quorum.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),     // 5: quorum.v1.ChangePasswordResponse
+	(*WhoAmIRequest)(nil),              // 6: quorum.v1.WhoAmIRequest
+	(*WhoAmIResponse)(nil),             // 7: quorum.v1.WhoAmIResponse
+	(*PublishIdentityKeyRequest)(nil),  // 8: quorum.v1.PublishIdentityKeyRequest
+	(*PublishIdentityKeyResponse)(nil), // 9: quorum.v1.PublishIdentityKeyResponse
+	(*GetIdentityKeyRequest)(nil),      // 10: quorum.v1.GetIdentityKeyRequest
+	(*GetIdentityKeyResponse)(nil),     // 11: quorum.v1.GetIdentityKeyResponse
+	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
 }
 var file_quorum_v1_auth_proto_depIdxs = []int32{
-	10, // 0: quorum.v1.LoginResponse.expires_at:type_name -> google.protobuf.Timestamp
+	12, // 0: quorum.v1.LoginResponse.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 1: quorum.v1.AuthService.Login:input_type -> quorum.v1.LoginRequest
 	2,  // 2: quorum.v1.AuthService.Logout:input_type -> quorum.v1.LogoutRequest
-	4,  // 3: quorum.v1.AuthService.WhoAmI:input_type -> quorum.v1.WhoAmIRequest
-	6,  // 4: quorum.v1.AuthService.PublishIdentityKey:input_type -> quorum.v1.PublishIdentityKeyRequest
-	8,  // 5: quorum.v1.AuthService.GetIdentityKey:input_type -> quorum.v1.GetIdentityKeyRequest
-	1,  // 6: quorum.v1.AuthService.Login:output_type -> quorum.v1.LoginResponse
-	3,  // 7: quorum.v1.AuthService.Logout:output_type -> quorum.v1.LogoutResponse
-	5,  // 8: quorum.v1.AuthService.WhoAmI:output_type -> quorum.v1.WhoAmIResponse
-	7,  // 9: quorum.v1.AuthService.PublishIdentityKey:output_type -> quorum.v1.PublishIdentityKeyResponse
-	9,  // 10: quorum.v1.AuthService.GetIdentityKey:output_type -> quorum.v1.GetIdentityKeyResponse
-	6,  // [6:11] is the sub-list for method output_type
-	1,  // [1:6] is the sub-list for method input_type
+	4,  // 3: quorum.v1.AuthService.ChangePassword:input_type -> quorum.v1.ChangePasswordRequest
+	6,  // 4: quorum.v1.AuthService.WhoAmI:input_type -> quorum.v1.WhoAmIRequest
+	8,  // 5: quorum.v1.AuthService.PublishIdentityKey:input_type -> quorum.v1.PublishIdentityKeyRequest
+	10, // 6: quorum.v1.AuthService.GetIdentityKey:input_type -> quorum.v1.GetIdentityKeyRequest
+	1,  // 7: quorum.v1.AuthService.Login:output_type -> quorum.v1.LoginResponse
+	3,  // 8: quorum.v1.AuthService.Logout:output_type -> quorum.v1.LogoutResponse
+	5,  // 9: quorum.v1.AuthService.ChangePassword:output_type -> quorum.v1.ChangePasswordResponse
+	7,  // 10: quorum.v1.AuthService.WhoAmI:output_type -> quorum.v1.WhoAmIResponse
+	9,  // 11: quorum.v1.AuthService.PublishIdentityKey:output_type -> quorum.v1.PublishIdentityKeyResponse
+	11, // 12: quorum.v1.AuthService.GetIdentityKey:output_type -> quorum.v1.GetIdentityKeyResponse
+	7,  // [7:13] is the sub-list for method output_type
+	1,  // [1:7] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -596,7 +693,7 @@ func file_quorum_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_quorum_v1_auth_proto_rawDesc), len(file_quorum_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

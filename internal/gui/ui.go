@@ -1,8 +1,11 @@
 package gui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -307,6 +310,61 @@ func (a *App) promptCreateChannel() {
 		}, a.win)
 }
 
+// promptChangePassword opens a modal form to change the user's password. The
+// three fields are masked; the new/confirm fields carry validators, so the
+// dialog's "Change" button stays disabled until the new password is long enough
+// and the confirmation matches. The server still verifies the current password
+// and re-checks the rules.
+func (a *App) promptChangePassword() {
+	current := widget.NewPasswordEntry()
+	next := widget.NewPasswordEntry()
+	confirm := widget.NewPasswordEntry()
+
+	next.Validator = func(s string) error {
+		if len(s) < 8 {
+			return errors.New("at least 8 characters")
+		}
+		return nil
+	}
+	confirm.Validator = func(s string) error {
+		if s != next.Text {
+			return errors.New("does not match")
+		}
+		return nil
+	}
+	// Re-validate the confirmation as the new password changes, so the match
+	// check tracks edits to either field.
+	next.OnChanged = func(string) { confirm.Validate() }
+
+	items := []*widget.FormItem{
+		widget.NewFormItem("Current", current),
+		widget.NewFormItem("New", next),
+		widget.NewFormItem("Confirm", confirm),
+	}
+	dialog.ShowForm("Change password", "Change", "Cancel", items, func(ok bool) {
+		if !ok {
+			return
+		}
+		old, neu := current.Text, next.Text
+		if old == "" {
+			a.setStatus("change password: enter your current password")
+			return
+		}
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			err := a.client.ChangePassword(ctx, old, neu)
+			fyne.Do(func() {
+				if err != nil {
+					a.setStatus("change password: " + grpcErrText(err))
+					return
+				}
+				a.setStatus("password changed")
+			})
+		}()
+	}, a.win)
+}
+
 // showHelp lists the client's slash commands in a dialog.
 func (a *App) showHelp() {
 	help := strings.Join([]string{
@@ -314,6 +372,7 @@ func (a *App) showHelp() {
 		"/join <name>     join an existing channel",
 		"/leave           leave the current channel",
 		"/dm <user>       open an end-to-end-encrypted direct message",
+		"/passwd          change your password (opens a private form)",
 		"/commands        list commands offered by bots",
 		"/help            show this help",
 		"/quit            exit quorum",

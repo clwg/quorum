@@ -11,7 +11,8 @@ direct messages; a GUI client; a terminal client; an admin terminal UI; and a bo
 - **cmd/quorum-client** — bubbletea chat TUI. Sidebar of channels and DMs, a
   message viewport, an input line, a status bar with connection state and
   E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
-  `/dm <user>`, `/commands` (list bot commands), `/help`, `/quit`.
+  `/dm <user>`, `/passwd` (change your password), `/commands` (list bot
+  commands), `/help`, `/quit`.
 - **cmd/quorum-gui** — Fyne desktop chat client; a graphical peer of
   quorum-client driving the same `internal/client` core.
 - **cmd/quorum-admin** — bubbletea admin TUI over the role-gated AdminService:
@@ -46,6 +47,8 @@ Build every component at once:
 ```bash
 make build
 ```
+
+On MacOS the following warning can be safely ignored ```ld: warning: ignoring duplicate libraries: '-lobjc'```
 
 Or build components individually:
 
