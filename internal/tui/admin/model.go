@@ -209,7 +209,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.mode = modeList
-		m.note = "logged in as " + m.client.Username()
+		m.note = "" // header bar already shows the signed-in admin
 		return m, tea.Batch(m.refreshUsers(), m.refreshBots())
 	}
 
