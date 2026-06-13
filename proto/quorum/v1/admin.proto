@@ -4,7 +4,7 @@ package quorum.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/layer8/quorum/gen/quorum/v1;quorumv1";
+option go_package = "github.com/clwg/quorum/gen/quorum/v1;quorumv1";
 
 // AdminService is reachable only by identities with role=admin
 // (enforced by the auth interceptor).

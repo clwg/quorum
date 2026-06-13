@@ -14,8 +14,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/client"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/client"
 )
 
 const sidebarWidth = 24

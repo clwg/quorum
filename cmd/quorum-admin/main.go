@@ -9,8 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/layer8/quorum/internal/client"
-	"github.com/layer8/quorum/internal/tui/admin"
+	"github.com/clwg/quorum/internal/client"
+	"github.com/clwg/quorum/internal/tui/admin"
 )
 
 func main() {

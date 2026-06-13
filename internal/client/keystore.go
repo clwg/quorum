@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/layer8/quorum/internal/e2ee"
+	"github.com/clwg/quorum/internal/e2ee"
 )
 
 // userDir returns the per-server, per-user state directory. Scoping by

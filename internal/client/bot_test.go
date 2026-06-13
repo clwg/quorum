@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/client"
-	"github.com/layer8/quorum/sdk/bot"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/client"
+	"github.com/clwg/quorum/sdk/bot"
 )
 
 func TestBotEndToEnd(t *testing.T) {

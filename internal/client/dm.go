@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	quorumv1 "github.com/layer8/quorum/gen/quorum/v1"
-	"github.com/layer8/quorum/internal/e2ee"
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
+	"github.com/clwg/quorum/internal/e2ee"
 )
 
 // dmManager owns E2EE state: established sessions, in-flight handshakes,
