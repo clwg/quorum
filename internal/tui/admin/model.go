@@ -98,17 +98,10 @@ func New(c *client.Client) *Model {
 	password.Placeholder = "password"
 	password.EchoMode = textinput.EchoPassword
 
-	ut := table.New(table.WithColumns([]table.Column{
-		{Title: "Username", Width: 20},
-		{Title: "Role", Width: 8},
-		{Title: "Disabled", Width: 9},
-		{Title: "Created", Width: 16},
-	}), table.WithFocused(true), table.WithHeight(12))
-	bt := table.New(table.WithColumns([]table.Column{
-		{Title: "Bot", Width: 20},
-		{Title: "Owner", Width: 20},
-		{Title: "Created", Width: 16},
-	}), table.WithFocused(true), table.WithHeight(12))
+	ut := table.New(table.WithColumns(userColumns(72)), table.WithFocused(true), table.WithHeight(12))
+	ut.SetStyles(tableStyles())
+	bt := table.New(table.WithColumns(botColumns(72)), table.WithFocused(true), table.WithHeight(12))
+	bt.SetStyles(tableStyles())
 
 	return &Model{
 		client:     c,
@@ -153,9 +146,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		h := max(6, m.height-10)
+		h := max(6, m.height-11)
 		m.usersTable.SetHeight(h)
 		m.botsTable.SetHeight(h)
+		tw := max(48, m.width-2)
+		m.usersTable.SetColumns(userColumns(tw))
+		m.botsTable.SetColumns(botColumns(tw))
 		return m, nil
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
@@ -165,14 +161,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m.fail("users", msg.err)
 		}
-		m.users = msg.users
-		rows := make([]table.Row, 0, len(m.users))
-		for _, u := range m.users {
-			dis := ""
-			if u.GetDisabled() {
-				dis = "yes"
+		// Bots are accounts too, but they belong on the Bots tab only; keep
+		// m.users aligned with the rendered rows so the cursor maps correctly.
+		m.users = m.users[:0]
+		rows := make([]table.Row, 0, len(msg.users))
+		for _, u := range msg.users {
+			if u.GetRole() == "bot" {
+				continue
 			}
-			rows = append(rows, table.Row{u.GetUsername(), u.GetRole(), dis, u.GetCreatedAt().AsTime().Local().Format("2006-01-02 15:04")})
+			m.users = append(m.users, u)
+			status := "active"
+			if u.GetDisabled() {
+				status = "disabled"
+			}
+			rows = append(rows, table.Row{u.GetUsername(), u.GetRole(), status, u.GetCreatedAt().AsTime().Local().Format("2006-01-02 15:04")})
 		}
 		m.usersTable.SetRows(rows)
 		return m, nil
@@ -513,64 +515,225 @@ func errText(err error) string {
 	return s
 }
 
-var (
-	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("63"))
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	errStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	activeTab   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212")).Underline(true)
-	inactiveTab = dimStyle
-	tokenStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220")).Border(lipgloss.RoundedBorder()).Padding(1, 2)
-	boxStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 2)
+// Palette. 256-colour ANSI codes, kept in step with the chat client so both
+// TUIs read as one product.
+const (
+	colAccent = lipgloss.Color("63")  // brand blue/violet
+	colSelect = lipgloss.Color("212") // selection pink
+	colDim    = lipgloss.Color("241")
+	colDimmer = lipgloss.Color("238")
+	colErr    = lipgloss.Color("203")
+	colOK     = lipgloss.Color("42")
+	colWarn   = lipgloss.Color("220")
+	colBarBG  = lipgloss.Color("236")
+	colHeadBG = lipgloss.Color("237")
+	colHeadFG = lipgloss.Color("254")
 )
+
+var (
+	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
+	dimStyle    = lipgloss.NewStyle().Foreground(colDim)
+	errStyle    = lipgloss.NewStyle().Foreground(colErr)
+	okStyle     = lipgloss.NewStyle().Foreground(colOK)
+	promptStyle = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
+
+	activeTab   = lipgloss.NewStyle().Bold(true).Foreground(colHeadFG).Background(colAccent).Padding(0, 2)
+	inactiveTab = lipgloss.NewStyle().Foreground(colDim).Padding(0, 2)
+
+	cardStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).Padding(1, 3)
+	confirmCard  = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colErr).Padding(1, 3)
+	tokenCard    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colWarn).Padding(1, 3)
+	tokenValue   = lipgloss.NewStyle().Bold(true).Foreground(colWarn)
+	contentStyle = lipgloss.NewStyle().Padding(1, 0, 0, 1)
+)
+
+// tableStyles gives both tables a dim, underlined header and a highlighted
+// selected row that reads as a cursor bar.
+func tableStyles() table.Styles {
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		Bold(true).Foreground(colDim).
+		BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).BorderForeground(colDimmer)
+	s.Selected = lipgloss.NewStyle().Bold(true).Foreground(colSelect).Background(colBarBG)
+	return s
+}
+
+// userColumns / botColumns lay the tables out to a target total width w
+// (including the per-cell padding), letting the name columns absorb the slack
+// so wide terminals don't leave a cramped 20-column username.
+func userColumns(w int) []table.Column {
+	const fixed = 6 + 9 + 16 + 2*4 // role + status + created + cell padding
+	name := max(16, w-fixed)
+	return []table.Column{
+		{Title: "Username", Width: name},
+		{Title: "Role", Width: 6},
+		{Title: "Status", Width: 9},
+		{Title: "Created", Width: 16},
+	}
+}
+
+func botColumns(w int) []table.Column {
+	const fixed = 16 + 2*3 // created + cell padding
+	rest := max(28, w-fixed)
+	bot := rest / 2
+	return []table.Column{
+		{Title: "Bot", Width: bot},
+		{Title: "Owner", Width: rest - bot},
+		{Title: "Created", Width: 16},
+	}
+}
 
 func (m *Model) View() string {
 	switch m.mode {
 	case modeLogin:
-		var b strings.Builder
-		b.WriteString(titleStyle.Render("quorum admin") + "\n\n")
-		b.WriteString("  " + m.inputs[0].View() + "\n")
-		b.WriteString("  " + m.inputs[1].View() + "\n\n")
-		if m.busy {
-			b.WriteString(dimStyle.Render("  logging in…") + "\n")
-		}
-		if m.note != "" {
-			b.WriteString(m.noteStyled() + "\n")
-		}
-		b.WriteString(dimStyle.Render("\n  Tab to switch · Enter to log in · Ctrl+C to quit"))
-		return lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+		return m.modal(m.loginCard())
 	case modeForm:
-		var b strings.Builder
-		b.WriteString(titleStyle.Render("quorum admin") + "\n\n")
-		for _, in := range m.formInputs {
-			b.WriteString("  " + in.View() + "\n")
-		}
-		b.WriteString(dimStyle.Render("\n  Enter to submit · Esc to cancel"))
-		return boxStyle.Render(b.String())
+		return m.modal(m.formCard())
 	case modeConfirm:
-		return boxStyle.Render(fmt.Sprintf("Delete %s? This cannot be undone.\n\n%s",
-			titleStyle.Render(m.confirmName), dimStyle.Render("y to confirm · any other key to cancel")))
+		return m.modal(confirmCard.Render(lipgloss.JoinVertical(lipgloss.Left,
+			errStyle.Render("Delete "+m.confirmName+"?"),
+			"",
+			dimStyle.Render("This permanently removes the account and cannot be undone."),
+			"",
+			dimStyle.Render("y confirm · any other key cancel"))))
 	case modeToken:
-		return tokenStyle.Render(fmt.Sprintf("Bot token (copy it now - it is not stored):\n\n  %s\n\nEnter to dismiss", m.shownToken))
+		return m.modal(tokenCard.Render(lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render("Bot token"),
+			dimStyle.Render("Copy it now — it is not stored and cannot be shown again."),
+			"",
+			tokenValue.Render(m.shownToken),
+			"",
+			dimStyle.Render("Enter to dismiss"))))
 	}
+	return m.listView()
+}
 
-	tabs := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.tabStyle(tabUsers).Render("[1] Users"), "  ", m.tabStyle(tabBots).Render("[2] Bots"))
-	var body, help string
+// modal centres a card over the full screen, matching the chat client's login
+// and password dialogs.
+func (m *Model) modal(card string) string {
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, card)
+	}
+	return card
+}
+
+func (m *Model) loginCard() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render("quorum admin"))
+	b.WriteString(dimStyle.Render("  ·  server management"))
+	b.WriteString("\n\n")
+	for i, in := range m.inputs {
+		b.WriteString(caret(i == m.loginFocus))
+		b.WriteString(in.View())
+		b.WriteByte('\n')
+	}
+	b.WriteString("\n")
+	switch {
+	case m.busy:
+		b.WriteString(dimStyle.Render("authenticating…"))
+	case m.note != "":
+		b.WriteString(m.noteStyled())
+	default:
+		b.WriteString(dimStyle.Render("Tab to switch · Enter to sign in · Ctrl+C to quit"))
+	}
+	return cardStyle.Render(b.String())
+}
+
+func (m *Model) formCard() string {
+	title, subtitle := m.formText()
+	var b strings.Builder
+	b.WriteString(titleStyle.Render(title))
+	if subtitle != "" {
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render(subtitle))
+	}
+	b.WriteString("\n\n")
+	for i, in := range m.formInputs {
+		b.WriteString(caret(i == m.formFocus))
+		b.WriteString(in.View())
+		b.WriteByte('\n')
+	}
+	b.WriteString("\n")
+	if m.note != "" && m.noteErr {
+		b.WriteString(errStyle.Render("✗ " + m.note))
+		b.WriteByte('\n')
+	}
+	b.WriteString(dimStyle.Render("Enter to submit · Esc to cancel"))
+	return cardStyle.Render(b.String())
+}
+
+func (m *Model) formText() (title, subtitle string) {
+	switch m.form {
+	case formAddUser:
+		return "Add user", "Create an account, then share the password to sign in."
+	case formResetPassword:
+		return "Reset password", "Set a new password. Their active sessions are revoked."
+	case formCreateBot:
+		return "Create bot", "Register a bot account. Its token is shown once."
+	}
+	return "quorum admin", ""
+}
+
+func (m *Model) listView() string {
+	usersTab := m.tabStyle(tabUsers).Render(fmt.Sprintf("1  Users  %d", len(m.users)))
+	botsTab := m.tabStyle(tabBots).Render(fmt.Sprintf("2  Bots  %d", len(m.bots)))
+	tabs := lipgloss.JoinHorizontal(lipgloss.Top, usersTab, " ", botsTab)
+
+	var body string
+	var help [][2]string
 	if m.tab == tabUsers {
 		body = m.usersTable.View()
-		help = "a add · d toggle disabled · r reset password · x delete · R refresh · q quit"
+		help = [][2]string{{"1/2", "switch"}, {"j/k", "move"}, {"a", "add"}, {"d", "disable"}, {"r", "reset pw"}, {"x", "delete"}, {"R", "refresh"}, {"q", "quit"}}
 	} else {
 		body = m.botsTable.View()
-		help = "a create bot · t rotate token · x delete · R refresh · q quit"
+		help = [][2]string{{"1/2", "switch"}, {"j/k", "move"}, {"a", "new bot"}, {"t", "rotate token"}, {"x", "delete"}, {"R", "refresh"}, {"q", "quit"}}
 	}
-	out := lipgloss.JoinVertical(lipgloss.Left,
-		titleStyle.Render("quorum admin")+dimStyle.Render("  "+m.client.Username()),
-		tabs, body, dimStyle.Render(help))
+
+	middle := []string{tabs, "", body}
 	if m.note != "" {
-		out = lipgloss.JoinVertical(lipgloss.Left, out, m.noteStyled())
+		middle = append(middle, "", m.noteStyled())
 	}
-	return lipgloss.NewStyle().Padding(1, 2).Render(out)
+	content := contentStyle.Render(lipgloss.JoinVertical(lipgloss.Left, middle...))
+	return lipgloss.JoinVertical(lipgloss.Left, m.headerBar(), content, m.footerBar(help))
+}
+
+// headerBar draws the full-width title bar: product name on the left, the
+// signed-in admin pinned right, on a subtle background.
+func (m *Model) headerBar() string {
+	w := max(0, m.width)
+	bg := lipgloss.NewStyle().Background(colHeadBG)
+	left := bg.Foreground(colHeadFG).Bold(true).Render(" quorum admin")
+	right := bg.Foreground(colDim).Render("signed in ") + bg.Foreground(colHeadFG).Bold(true).Render(m.client.Username()) + bg.Render(" ")
+	gap := max(1, w-lipgloss.Width(left)-lipgloss.Width(right))
+	return left + bg.Render(strings.Repeat(" ", gap)) + right
+}
+
+// footerBar draws the full-width key-hint bar from key/description pairs.
+func (m *Model) footerBar(pairs [][2]string) string {
+	w := max(0, m.width)
+	bg := lipgloss.NewStyle().Background(colBarBG)
+	keyS := bg.Foreground(colHeadFG).Bold(true)
+	descS := bg.Foreground(colDim)
+	var b strings.Builder
+	b.WriteString(bg.Render(" "))
+	for i, p := range pairs {
+		if i > 0 {
+			b.WriteString(descS.Render("  "))
+		}
+		b.WriteString(keyS.Render(p[0]))
+		b.WriteString(descS.Render(" " + p[1]))
+	}
+	line := b.String()
+	gap := max(1, w-lipgloss.Width(line))
+	return line + bg.Render(strings.Repeat(" ", gap))
+}
+
+// caret returns the focused-field marker used in the modal cards.
+func caret(focused bool) string {
+	if focused {
+		return promptStyle.Render("› ")
+	}
+	return "  "
 }
 
 func (m *Model) tabStyle(t tab) lipgloss.Style {
@@ -582,7 +745,7 @@ func (m *Model) tabStyle(t tab) lipgloss.Style {
 
 func (m *Model) noteStyled() string {
 	if m.noteErr {
-		return errStyle.Render(m.note)
+		return errStyle.Render("✗ " + m.note)
 	}
-	return okStyle.Render(m.note)
+	return okStyle.Render("✓ " + m.note)
 }
