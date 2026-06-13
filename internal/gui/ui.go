@@ -17,6 +17,10 @@ import (
 // loginFormWidth is the fixed width of the centred connection form.
 const loginFormWidth = 420
 
+// changePasswordDialogWidth widens the /passwd dialog beyond its natural
+// label-hugging width so the masked entry fields are comfortable to type in.
+const changePasswordDialogWidth = 480
+
 // buildLogin constructs the connection/login screen. Dialing and login run off
 // the UI goroutine; on success the window swaps to the chat UI.
 func (a *App) buildLogin() fyne.CanvasObject {
@@ -341,7 +345,7 @@ func (a *App) promptChangePassword() {
 		widget.NewFormItem("New", next),
 		widget.NewFormItem("Confirm", confirm),
 	}
-	dialog.ShowForm("Change password", "Change", "Cancel", items, func(ok bool) {
+	d := dialog.NewForm("Change password", "Change", "Cancel", items, func(ok bool) {
 		if !ok {
 			return
 		}
@@ -363,6 +367,10 @@ func (a *App) promptChangePassword() {
 			})
 		}()
 	}, a.win)
+	// The form's natural width hugs the labels, leaving the password fields
+	// cramped; widen it (keeping the natural height) so the entries have room.
+	d.Resize(fyne.NewSize(changePasswordDialogWidth, d.MinSize().Height))
+	d.Show()
 }
 
 // showHelp lists the client's slash commands in a dialog.
