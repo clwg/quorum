@@ -4,8 +4,8 @@ A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
 
-![ui](screenshots/tui.png)
-![gui](screenshots/gui.png)
+![ui](images/tui.png)
+![gui](images/gui.png)
 
 ## Components
 
@@ -188,10 +188,10 @@ docker run --rm -it -v quorum-data:/data quorum:latest \
 ```
 
 #### Admin TUI
-
+```
 docker run --rm -it -v quorum-data:/data quorum:latest \
   quorum-admin --addr <hostname or ip>:8443 --ca certs/ca.pem
-
+```
 
 # Poke around / list binaries
 docker run --rm -it quorum:latest        # drops to a shell
