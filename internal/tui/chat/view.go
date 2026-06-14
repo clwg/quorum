@@ -298,7 +298,14 @@ func (m *Model) sidebarHit(y int) (string, focusArea) {
 func (m *Model) contentView() string {
 	w := m.contentWidth()
 	input := promptStyle.Render("›") + " " + m.input.View()
-	return lipgloss.NewStyle().Width(w).PaddingLeft(1).Render(
+	// Only pad-left here; do NOT set Width. The header, viewport, and input are
+	// already sized to w, and the viewport clips its own height. Setting Width on
+	// this outer style makes lipgloss re-wrap the block at (w - leftPadding), so
+	// every full-width line - the ones a long or contiguous message produces -
+	// folds onto a second line. That inflates the content column past the
+	// sidebar's height, pushing the whole view off-screen and desyncing the
+	// sidebar's click hit-testing from what's drawn.
+	return lipgloss.NewStyle().PaddingLeft(1).Render(
 		lipgloss.JoinVertical(lipgloss.Left, m.headerBar(w), m.vp.View(), input))
 }
 
