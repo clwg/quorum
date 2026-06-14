@@ -75,18 +75,21 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case historyMsg:
+		conv, ok := m.convs[msg.convKey]
+		if !ok {
+			return m, nil
+		}
+		if msg.prepend {
+			conv.loadingOlder = false
+		}
 		if msg.err != nil {
 			m.statusNote = "history: " + grpcErrText(msg.err)
 			return m, nil
 		}
-		if conv, ok := m.convs[msg.convKey]; ok {
-			conv.msgs = nil
-			for _, cm := range msg.messages {
-				conv.msgs = append(conv.msgs, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
-			}
-			if msg.convKey == m.activeKey {
-				m.refreshViewport()
-			}
+		if msg.prepend {
+			m.applyOlderHistory(conv, msg.messages)
+		} else {
+			m.applyInitialHistory(conv, msg.messages)
 		}
 		return m, nil
 	case joinedMsg:
@@ -103,12 +106,11 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var cmd tea.Cmd
-	if m.focus == focusInput {
-		m.input, cmd = m.input.Update(msg)
-	} else {
-		m.vp, cmd = m.vp.Update(msg)
+	if m.focus != focusInput {
+		return m, m.scrollViewport(msg)
 	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
@@ -121,9 +123,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleFocus(-1)
 		return m, nil
 	case tea.KeyPgUp, tea.KeyPgDown:
-		var cmd tea.Cmd
-		m.vp, cmd = m.vp.Update(msg)
-		return m, cmd
+		return m, m.scrollViewport(msg)
 	}
 
 	if m.focus == focusChannels || m.focus == focusDMs {
@@ -162,9 +162,15 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	return m, m.scrollViewport(msg)
+}
+
+// scrollViewport forwards a scroll input to the message viewport and, when the
+// view ends up near the top, kicks off a fetch of the next older history page.
+func (m *Model) scrollViewport(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	m.vp, cmd = m.vp.Update(msg)
-	return m, cmd
+	return tea.Batch(cmd, m.maybeLoadOlder())
 }
 
 // cycleFocus advances focus through input → channels → DMs (dir 1) or the
@@ -555,7 +561,7 @@ var helpLines = []string{
 	"  Enter            open the selected conversation (joins if needed)",
 	"  click            open a channel or DM in the sidebar",
 	"  wheel over panel scroll the channels or DMs list",
-	"  PgUp/PgDn        scroll the message history",
+	"  PgUp/PgDn        scroll history (scroll up to load older messages)",
 	"  Ctrl+C           quit",
 }
 

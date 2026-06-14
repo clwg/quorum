@@ -156,6 +156,7 @@ func (a *App) buildMain() fyne.CanvasObject {
 
 	a.msgBox = container.NewVBox()
 	a.msgScroll = container.NewVScroll(a.msgBox)
+	a.msgScroll.OnScrolled = func(pos fyne.Position) { a.maybeLoadOlder(pos) }
 
 	a.input = widget.NewEntry()
 	a.input.SetPlaceHolder("Type a message, or /help for commands")
@@ -244,7 +245,56 @@ func (a *App) rebuildMessages(conv *conversation) {
 	}
 	a.msgBox.Objects = objs
 	a.msgBox.Refresh()
+	a.scrollToBottom()
+}
+
+// layoutContent forces the message box to lay out at the current viewport width
+// and sizes it to fit, returning the resulting content height. This mirrors what
+// the Scroll's renderer does (content.Resize(MinSize().Max(viewport))) but only
+// on the next canvas pass - too late for the scroll math we run immediately after
+// changing the rows. Container.Resize lays out children synchronously, so doing
+// it here makes word-wrapped rows report their true height and grows the content
+// past the viewport, which is what Scroll.updateOffset checks before honouring a
+// scroll (otherwise it snaps the offset back to the top). Returns 0 before the
+// pane has a size (e.g. the very first load, before the window is laid out).
+func (a *App) layoutContent() float32 {
+	viewport := a.msgScroll.Size()
+	if viewport.Height <= 0 {
+		return 0
+	}
+	a.msgBox.Resize(fyne.NewSize(viewport.Width, viewport.Height)) // width: rows wrap
+	full := a.msgBox.MinSize().Max(viewport)                       // height: real total
+	a.msgBox.Resize(full)
+	return full.Height
+}
+
+// scrollToBottom scrolls the message pane to the latest message. ScrollToBottom
+// fires OnScrolled synchronously, so it is bracketed with suppressLoad to keep
+// this programmatic jump from being mistaken for the user scrolling up.
+func (a *App) scrollToBottom() {
+	a.layoutContent()
+	a.suppressLoad = true
 	a.msgScroll.ScrollToBottom()
+	a.suppressLoad = false
+}
+
+// prependMessageRows inserts freshly loaded older rows above the current ones,
+// preserving the scroll position so the view stays anchored on the message the
+// user was reading instead of jumping as the content grows upward.
+func (a *App) prependMessageRows(older []message) {
+	prevHeight := a.msgBox.MinSize().Height
+	oldOffset := a.msgScroll.Offset
+	rows := make([]fyne.CanvasObject, 0, len(older)+len(a.msgBox.Objects))
+	for _, m := range older {
+		rows = append(rows, messageRow(m))
+	}
+	rows = append(rows, a.msgBox.Objects...)
+	a.msgBox.Objects = rows
+	a.msgBox.Refresh()
+	added := a.layoutContent() - prevHeight
+	a.suppressLoad = true
+	a.msgScroll.ScrollToOffset(fyne.NewPos(oldOffset.X, oldOffset.Y+added))
+	a.suppressLoad = false
 }
 
 func (a *App) clearMessages() {

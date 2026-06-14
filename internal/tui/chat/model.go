@@ -20,6 +20,15 @@ import (
 
 const sidebarWidth = 24
 
+// historyPageSize is how many channel messages each history fetch requests -
+// both the initial load when a channel is opened and each older page loaded by
+// scrolling the scrollback up.
+const historyPageSize = 100
+
+// historyScrollThreshold is how close (in viewport lines) the scrollback must be
+// to the top before scrolling up fetches the next older page.
+const historyScrollThreshold = 3
+
 // EventMsg wraps a client event for the Update loop.
 type EventMsg struct{ Ev client.Event }
 
@@ -35,6 +44,7 @@ type usersMsg struct {
 type historyMsg struct {
 	convKey  string
 	messages []*quorumv1.ChannelMessage
+	prepend  bool // true: an older page to prepend; false: initial page to replace
 	err      error
 }
 type actionErrMsg struct {
@@ -64,6 +74,11 @@ type conversation struct {
 	unread        int
 	msgs          []message
 	historyLoaded bool
+
+	// Channel history pagination (scroll up to load older messages).
+	oldestID     int64 // server id of the oldest loaded message; the next page's cursor
+	hasMore      bool  // older messages may still exist on the server
+	loadingOlder bool  // an older-history fetch is in flight
 
 	// DM session state
 	established bool
@@ -349,8 +364,73 @@ func (m *Model) fetchHistory(conv *conversation) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		msgs, err := m.client.ChannelHistory(ctx, channelID, 0, 100)
+		msgs, err := m.client.ChannelHistory(ctx, channelID, 0, historyPageSize)
 		return historyMsg{convKey: key, messages: msgs, err: err}
+	}
+}
+
+// fetchOlderHistory loads the page of messages immediately before the oldest one
+// currently held, for scroll-up pagination.
+func (m *Model) fetchOlderHistory(conv *conversation) tea.Cmd {
+	channelID, key, before := conv.id, conv.key, conv.oldestID
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		msgs, err := m.client.ChannelHistory(ctx, channelID, before, historyPageSize)
+		return historyMsg{convKey: key, messages: msgs, prepend: true, err: err}
+	}
+}
+
+// maybeLoadOlder kicks off an older-history fetch when the active channel's
+// scrollback is near the top and more history may exist. It is a no-op for DMs
+// (which have no server-side history), while a fetch is already in flight, or
+// once the server has no older messages.
+func (m *Model) maybeLoadOlder() tea.Cmd {
+	conv := m.active()
+	if conv == nil || conv.isDM || !conv.historyLoaded || !conv.hasMore || conv.loadingOlder {
+		return nil
+	}
+	if m.vp.YOffset > historyScrollThreshold {
+		return nil
+	}
+	conv.loadingOlder = true
+	return m.fetchOlderHistory(conv)
+}
+
+// applyInitialHistory replaces a conversation's scrollback with a freshly loaded
+// page and resets its pagination cursor.
+func (m *Model) applyInitialHistory(conv *conversation, msgs []*quorumv1.ChannelMessage) {
+	conv.loadingOlder = false // a reload (e.g. after reconnect) supersedes any older-page fetch
+	conv.msgs = nil
+	for _, cm := range msgs {
+		conv.msgs = append(conv.msgs, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
+	}
+	if len(msgs) > 0 {
+		conv.oldestID = msgs[0].GetId()
+	}
+	conv.hasMore = len(msgs) == historyPageSize
+	if conv.key == m.activeKey {
+		m.refreshViewport()
+	}
+}
+
+// applyOlderHistory prepends an older page of messages to a conversation,
+// advancing the pagination cursor and keeping the viewport anchored on the
+// message the user was reading.
+func (m *Model) applyOlderHistory(conv *conversation, msgs []*quorumv1.ChannelMessage) {
+	if len(msgs) == 0 {
+		conv.hasMore = false
+		return
+	}
+	older := make([]message, 0, len(msgs))
+	for _, cm := range msgs {
+		older = append(older, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
+	}
+	conv.msgs = append(older, conv.msgs...)
+	conv.oldestID = msgs[0].GetId()
+	conv.hasMore = len(msgs) == historyPageSize
+	if conv.key == m.activeKey {
+		m.refreshViewportKeepingScroll()
 	}
 }
 
@@ -424,19 +504,39 @@ func (m *Model) push(conv *conversation, msg message) {
 	}
 }
 
+// renderConv renders a conversation's scrollback into viewport content, wrapped
+// to the current content width.
+func (m *Model) renderConv(conv *conversation) string {
+	w := m.contentWidth()
+	rendered := make([]string, len(conv.msgs))
+	for i, msg := range conv.msgs {
+		rendered[i] = renderMessage(msg, w)
+	}
+	return strings.Join(rendered, "\n")
+}
+
 func (m *Model) refreshViewport() {
 	conv := m.active()
 	if conv == nil {
 		m.vp.SetContent(m.welcomeView())
 		return
 	}
-	w := m.contentWidth()
-	rendered := make([]string, len(conv.msgs))
-	for i, msg := range conv.msgs {
-		rendered[i] = renderMessage(msg, w)
-	}
-	m.vp.SetContent(strings.Join(rendered, "\n"))
+	m.vp.SetContent(m.renderConv(conv))
 	m.vp.GotoBottom()
+}
+
+// refreshViewportKeepingScroll re-renders the active conversation after older
+// messages were prepended, shifting the scroll offset down by the number of new
+// lines so the message the user was reading stays put instead of jumping.
+func (m *Model) refreshViewportKeepingScroll() {
+	conv := m.active()
+	if conv == nil {
+		return
+	}
+	oldOffset := m.vp.YOffset
+	oldTotal := m.vp.TotalLineCount()
+	m.vp.SetContent(m.renderConv(conv))
+	m.vp.SetYOffset(oldOffset + m.vp.TotalLineCount() - oldTotal)
 }
 
 func fmtTime(ts *quorumv1.ChannelMessage) string {

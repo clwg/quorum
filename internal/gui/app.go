@@ -21,6 +21,16 @@ import (
 	"github.com/clwg/quorum/internal/client"
 )
 
+const (
+	// historyPageSize is how many channel messages each history fetch requests -
+	// the initial load when a channel is opened and each older page loaded by
+	// scrolling the message pane up.
+	historyPageSize = 100
+	// historyScrollThreshold is how close to the top (in pixels) the message pane
+	// must be scrolled before the next older page is fetched.
+	historyScrollThreshold float32 = 60
+)
+
 // Defaults seed the connection form (from command-line flags).
 type Defaults struct {
 	Addr    string
@@ -44,10 +54,11 @@ type App struct {
 	users     map[string]*quorumv1.User
 	connState client.ConnState
 
-	pendingJoin string // channel name a /join is waiting on a refresh for
-	note        string // transient status-bar note
-	selecting   bool   // guards programmatic list selection from re-entering openConv
-	pumpStarted bool
+	pendingJoin  string // channel name a /join is waiting on a refresh for
+	note         string // transient status-bar note
+	selecting    bool   // guards programmatic list selection from re-entering openConv
+	suppressLoad bool   // guards programmatic scrolls from triggering older-history loads
+	pumpStarted  bool
 
 	// main-window widgets (nil until showMain)
 	channelList *widget.List
@@ -181,7 +192,7 @@ func (a *App) push(conv *conversation, msg message) {
 	}
 	if conv.key == a.activeKey {
 		a.msgBox.Add(messageRow(msg))
-		a.msgScroll.ScrollToBottom()
+		a.scrollToBottom()
 	} else {
 		conv.unread++
 		a.refreshListFor(conv)
@@ -499,7 +510,7 @@ func (a *App) fetchHistory(conv *conversation) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		msgs, err := a.client.ChannelHistory(ctx, channelID, 0, 100)
+		msgs, err := a.client.ChannelHistory(ctx, channelID, 0, historyPageSize)
 		fyne.Do(func() { a.applyHistory(key, msgs, err) })
 	}()
 }
@@ -513,13 +524,79 @@ func (a *App) applyHistory(key string, msgs []*quorumv1.ChannelMessage, err erro
 	if conv == nil {
 		return
 	}
+	conv.loadingOlder = false // a reload (e.g. after reconnect) supersedes any older-page fetch
 	conv.msgs = nil
 	for _, cm := range msgs {
 		conv.msgs = append(conv.msgs, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), a.isSelf(cm.GetSenderName())))
 	}
+	if len(msgs) > 0 {
+		conv.oldestID = msgs[0].GetId()
+	}
+	conv.hasMore = len(msgs) == historyPageSize
 	if key == a.activeKey {
 		a.rebuildMessages(conv)
 	}
+}
+
+// fetchOlderHistory loads the page of messages immediately before the oldest one
+// held for conv, for scroll-up pagination.
+func (a *App) fetchOlderHistory(conv *conversation) {
+	channelID, key, before := conv.id, conv.key, conv.oldestID
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		msgs, err := a.client.ChannelHistory(ctx, channelID, before, historyPageSize)
+		fyne.Do(func() { a.applyOlderHistory(key, msgs, err) })
+	}()
+}
+
+// applyOlderHistory prepends an older page to a conversation, advancing the
+// pagination cursor and keeping the message pane anchored on what the user was
+// reading.
+func (a *App) applyOlderHistory(key string, msgs []*quorumv1.ChannelMessage, err error) {
+	conv := a.convs[key]
+	if conv == nil {
+		return
+	}
+	conv.loadingOlder = false
+	if err != nil {
+		a.setStatus("history: " + grpcErrText(err))
+		return
+	}
+	if len(msgs) == 0 {
+		conv.hasMore = false
+		return
+	}
+	older := make([]message, 0, len(msgs))
+	for _, cm := range msgs {
+		older = append(older, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), a.isSelf(cm.GetSenderName())))
+	}
+	conv.msgs = append(older, conv.msgs...)
+	conv.oldestID = msgs[0].GetId()
+	conv.hasMore = len(msgs) == historyPageSize
+	if key == a.activeKey {
+		a.prependMessageRows(older)
+	}
+}
+
+// maybeLoadOlder fetches the next older page when the message pane is scrolled
+// near the top and the active channel may still have history. It is a no-op for
+// DMs (no server-side history), while a fetch is in flight, or once exhausted.
+func (a *App) maybeLoadOlder(pos fyne.Position) {
+	// ScrollToBottom/ScrollToOffset fire OnScrolled synchronously; ignore those
+	// programmatic scrolls so only genuine user scrolling loads older history.
+	if a.suppressLoad {
+		return
+	}
+	conv := a.active()
+	if conv == nil || conv.isDM || !conv.historyLoaded || !conv.hasMore || conv.loadingOlder {
+		return
+	}
+	if pos.Y > historyScrollThreshold {
+		return
+	}
+	conv.loadingOlder = true
+	a.fetchOlderHistory(conv)
 }
 
 // --- inbound events from the client pump (already on the UI goroutine) ---

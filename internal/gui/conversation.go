@@ -22,6 +22,11 @@ type conversation struct {
 
 	historyLoaded bool
 
+	// Channel history pagination (scroll up to load older messages).
+	oldestID     int64 // server id of the oldest loaded message; the next page's cursor
+	hasMore      bool  // older messages may still exist on the server
+	loadingOlder bool  // an older-history fetch is in flight
+
 	// DM E2EE session state
 	established bool
 	fingerprint string

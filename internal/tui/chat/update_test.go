@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -9,6 +10,95 @@ import (
 	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 	"github.com/clwg/quorum/internal/client"
 )
+
+// makeHistory builds n channel messages with ascending ids starting at startID,
+// matching the server's ascending-by-id history ordering.
+func makeHistory(startID int64, n int) []*quorumv1.ChannelMessage {
+	msgs := make([]*quorumv1.ChannelMessage, n)
+	for i := range n {
+		id := startID + int64(i)
+		msgs[i] = &quorumv1.ChannelMessage{Id: id, SenderName: "alice", Body: fmt.Sprintf("m%d", id)}
+	}
+	return msgs
+}
+
+// TestChannelHistoryPagination covers scroll-up loading of older messages: an
+// initial full page leaves more history available; reaching the top starts
+// exactly one fetch; a short older page prepends in order and exhausts history.
+func TestChannelHistoryPagination(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	conv.historyLoaded = true
+	m.setActive(conv.key)
+
+	// A full initial page records the cursor and that more history may exist.
+	m.applyInitialHistory(conv, makeHistory(101, historyPageSize))
+	if got := len(conv.msgs); got != historyPageSize {
+		t.Fatalf("initial msgs = %d, want %d", got, historyPageSize)
+	}
+	if conv.oldestID != 101 {
+		t.Fatalf("oldestID = %d, want 101", conv.oldestID)
+	}
+	if !conv.hasMore {
+		t.Fatal("a full first page should leave hasMore=true")
+	}
+
+	// Scrolled away from the top: no fetch, even with more history.
+	m.vp.SetYOffset(historyScrollThreshold + 50)
+	if cmd := m.maybeLoadOlder(); cmd != nil || conv.loadingOlder {
+		t.Fatal("not near the top: no older-history fetch expected")
+	}
+
+	// At the top with more history: a fetch starts, exactly once.
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd == nil {
+		t.Fatal("at top with more history: expected an older-history fetch")
+	}
+	if !conv.loadingOlder {
+		t.Fatal("maybeLoadOlder should mark the fetch in flight")
+	}
+	if cmd := m.maybeLoadOlder(); cmd != nil {
+		t.Fatal("a fetch is already in flight: no second fetch expected")
+	}
+
+	// The history handler clears the in-flight flag before applying the page.
+	conv.loadingOlder = false
+	m.applyOlderHistory(conv, makeHistory(1, 10))
+	if got := len(conv.msgs); got != historyPageSize+10 {
+		t.Fatalf("after prepend msgs = %d, want %d", got, historyPageSize+10)
+	}
+	if conv.msgs[0].body != "m1" {
+		t.Fatalf("oldest rendered message = %q, want m1", conv.msgs[0].body)
+	}
+	if conv.oldestID != 1 {
+		t.Fatalf("oldestID = %d, want 1", conv.oldestID)
+	}
+	if conv.hasMore {
+		t.Fatal("a short page (< full) should set hasMore=false")
+	}
+
+	// History exhausted: reaching the top no longer fetches.
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd != nil {
+		t.Fatal("history exhausted: no fetch expected")
+	}
+}
+
+// TestMaybeLoadOlderSkipsDMs confirms DMs (which have no server-side history)
+// never trigger an older-history fetch even when scrolled to the top.
+func TestMaybeLoadOlderSkipsDMs(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(dmKey("p"), "p", "@peer", true)
+	conv.historyLoaded = true
+	conv.hasMore = true
+	m.setActive(conv.key)
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd != nil || conv.loadingOlder {
+		t.Fatal("DMs should never fetch channel history")
+	}
+}
 
 // TestIncomingDMSeedsPresenceFromDirectory covers a returning user: an
 // incoming DM creates the conversation for a peer who is already online.
