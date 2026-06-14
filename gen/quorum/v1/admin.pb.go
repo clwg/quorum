@@ -940,7 +940,7 @@ const file_quorum_v1_admin_proto_rawDesc = "" +
 	"\rResetPassword\x12\x1f.quorum.v1.ResetPasswordRequest\x1a .quorum.v1.ResetPasswordResponse\x12F\n" +
 	"\tCreateBot\x12\x1b.quorum.v1.CreateBotRequest\x1a\x1c.quorum.v1.CreateBotResponse\x12C\n" +
 	"\bListBots\x12\x1a.quorum.v1.ListBotsRequest\x1a\x1b.quorum.v1.ListBotsResponse\x12U\n" +
-	"\x0eRevokeBotToken\x12 .quorum.v1.RevokeBotTokenRequest\x1a!.quorum.v1.RevokeBotTokenResponseB1Z/github.com/clwg/quorum/gen/quorum/v1;quorumv1b\x06proto3"
+	"\x0eRevokeBotToken\x12 .quorum.v1.RevokeBotTokenRequest\x1a!.quorum.v1.RevokeBotTokenResponseB/Z-github.com/clwg/quorum/gen/quorum/v1;quorumv1b\x06proto3"
 
 var (
 	file_quorum_v1_admin_proto_rawDescOnce sync.Once
