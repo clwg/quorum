@@ -397,6 +397,19 @@ func (c *Client) ChannelHistory(ctx context.Context, channelID string, beforeID 
 	return resp.GetMessages(), nil
 }
 
+// SearchChannelMessages searches a channel's stored history for messages whose
+// body contains query (case-insensitive substring), returning the most recent
+// matches in ascending id order.
+func (c *Client) SearchChannelMessages(ctx context.Context, channelID, query string, limit int32) ([]*quorumv1.ChannelMessage, error) {
+	resp, err := c.chatc.SearchChannelMessages(ctx, &quorumv1.SearchChannelMessagesRequest{
+		ChannelId: channelID, Query: query, Limit: limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetMessages(), nil
+}
+
 func (c *Client) RegisterCommands(ctx context.Context, cmds []*quorumv1.CommandSpec) ([]string, error) {
 	resp, err := c.chatc.RegisterCommands(ctx, &quorumv1.RegisterCommandsRequest{Commands: cmds})
 	if err != nil {

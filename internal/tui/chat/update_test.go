@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -9,6 +11,95 @@ import (
 	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 	"github.com/clwg/quorum/internal/client"
 )
+
+// makeHistory builds n channel messages with ascending ids starting at startID,
+// matching the server's ascending-by-id history ordering.
+func makeHistory(startID int64, n int) []*quorumv1.ChannelMessage {
+	msgs := make([]*quorumv1.ChannelMessage, n)
+	for i := range n {
+		id := startID + int64(i)
+		msgs[i] = &quorumv1.ChannelMessage{Id: id, SenderName: "alice", Body: fmt.Sprintf("m%d", id)}
+	}
+	return msgs
+}
+
+// TestChannelHistoryPagination covers scroll-up loading of older messages: an
+// initial full page leaves more history available; reaching the top starts
+// exactly one fetch; a short older page prepends in order and exhausts history.
+func TestChannelHistoryPagination(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	conv.historyLoaded = true
+	m.setActive(conv.key)
+
+	// A full initial page records the cursor and that more history may exist.
+	m.applyInitialHistory(conv, makeHistory(101, historyPageSize))
+	if got := len(conv.msgs); got != historyPageSize {
+		t.Fatalf("initial msgs = %d, want %d", got, historyPageSize)
+	}
+	if conv.oldestID != 101 {
+		t.Fatalf("oldestID = %d, want 101", conv.oldestID)
+	}
+	if !conv.hasMore {
+		t.Fatal("a full first page should leave hasMore=true")
+	}
+
+	// Scrolled away from the top: no fetch, even with more history.
+	m.vp.SetYOffset(historyScrollThreshold + 50)
+	if cmd := m.maybeLoadOlder(); cmd != nil || conv.loadingOlder {
+		t.Fatal("not near the top: no older-history fetch expected")
+	}
+
+	// At the top with more history: a fetch starts, exactly once.
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd == nil {
+		t.Fatal("at top with more history: expected an older-history fetch")
+	}
+	if !conv.loadingOlder {
+		t.Fatal("maybeLoadOlder should mark the fetch in flight")
+	}
+	if cmd := m.maybeLoadOlder(); cmd != nil {
+		t.Fatal("a fetch is already in flight: no second fetch expected")
+	}
+
+	// The history handler clears the in-flight flag before applying the page.
+	conv.loadingOlder = false
+	m.applyOlderHistory(conv, makeHistory(1, 10))
+	if got := len(conv.msgs); got != historyPageSize+10 {
+		t.Fatalf("after prepend msgs = %d, want %d", got, historyPageSize+10)
+	}
+	if conv.msgs[0].body != "m1" {
+		t.Fatalf("oldest rendered message = %q, want m1", conv.msgs[0].body)
+	}
+	if conv.oldestID != 1 {
+		t.Fatalf("oldestID = %d, want 1", conv.oldestID)
+	}
+	if conv.hasMore {
+		t.Fatal("a short page (< full) should set hasMore=false")
+	}
+
+	// History exhausted: reaching the top no longer fetches.
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd != nil {
+		t.Fatal("history exhausted: no fetch expected")
+	}
+}
+
+// TestMaybeLoadOlderSkipsDMs confirms DMs (which have no server-side history)
+// never trigger an older-history fetch even when scrolled to the top.
+func TestMaybeLoadOlderSkipsDMs(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(dmKey("p"), "p", "@peer", true)
+	conv.historyLoaded = true
+	conv.hasMore = true
+	m.setActive(conv.key)
+	m.vp.SetYOffset(0)
+	if cmd := m.maybeLoadOlder(); cmd != nil || conv.loadingOlder {
+		t.Fatal("DMs should never fetch channel history")
+	}
+}
 
 // TestIncomingDMSeedsPresenceFromDirectory covers a returning user: an
 // incoming DM creates the conversation for a peer who is already online.
@@ -54,6 +145,88 @@ func TestUnknownUserPresenceRefreshesRoster(t *testing.T) {
 	}
 	if _, cmd := m.handleEvent(client.PresenceEvent{Presence: &quorumv1.PresenceEvent{UserId: "ghost", Online: false}}); cmd != nil {
 		t.Fatalf("unknown user going offline should issue no command")
+	}
+}
+
+// TestSearchCommandValidation covers the local guards before any RPC: /search
+// only works in a channel and needs a non-empty query.
+func TestSearchCommandValidation(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	// No active conversation: rejected with a note, no overlay.
+	m.submit("/search hello")
+	if m.search != nil {
+		t.Fatal("/search with no channel should not open the overlay")
+	}
+	if m.statusNote == "" {
+		t.Fatal("/search with no channel should set a status note")
+	}
+
+	// In a DM: same rejection.
+	dm := m.ensureConv(dmKey("p"), "p", "@peer", true)
+	m.setActive(dm.key)
+	m.submit("/search hello")
+	if m.search != nil {
+		t.Fatal("/search in a DM should not open the overlay")
+	}
+
+	// In a channel, a blank query is rejected before any search command runs.
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	m.setActive(conv.key)
+	if _, cmd := m.submit("/search    "); cmd != nil {
+		t.Fatal("blank /search query should not start a search")
+	}
+	if m.statusNote != "usage: /search <query>" {
+		t.Fatalf("blank query status = %q", m.statusNote)
+	}
+}
+
+// TestSearchOverlay covers the results overlay: openSearch shows it with the
+// match count, Esc closes it, and unrelated messages are not consumed so
+// background state keeps updating behind it.
+func TestSearchOverlay(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	m.openSearch("m2", makeHistory(1, 3))
+	if m.search == nil {
+		t.Fatal("openSearch should open the overlay")
+	}
+	if m.search.count != 3 {
+		t.Fatalf("match count = %d, want 3", m.search.count)
+	}
+
+	if _, _, handled := m.updateSearch(joinedMsg{}); handled {
+		t.Fatal("overlay should not consume unrelated messages")
+	}
+	if _, _, handled := m.updateSearch(tea.KeyMsg{Type: tea.KeyEsc}); !handled {
+		t.Fatal("esc should be handled by the overlay")
+	}
+	if m.search != nil {
+		t.Fatal("esc should close the overlay")
+	}
+}
+
+// TestHighlightLike checks the match highlighter preserves the body's text
+// exactly (correct byte slicing) across zero, one, and several case-insensitive
+// matches. Styling is stripped without a terminal, so equality is on content.
+func TestHighlightLike(t *testing.T) {
+	cases := []struct{ body, query string }{
+		{"hello world", ""},                  // no query: unchanged
+		{"lunch at noon", "deploy"},          // no match: unchanged
+		{"Deploy a deploy DEPLOY", "deploy"}, // several case-insensitive matches
+		{"deploy", "deploy"},                 // whole body is the match
+	}
+	for _, tc := range cases {
+		if got := highlightLike(tc.body, tc.query); got != tc.body {
+			t.Errorf("highlightLike(%q, %q) text = %q, want %q", tc.body, tc.query, got, tc.body)
+		}
+	}
+	// Ensure we are exercising the highlighting path, not just the empty-query
+	// shortcut: a real match still round-trips to the same text.
+	if !strings.Contains(highlightLike("the deploy", "deploy"), "deploy") {
+		t.Fatal("highlight should retain the matched text")
 	}
 }
 

@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
+	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 	"github.com/clwg/quorum/internal/client"
 )
 
@@ -18,6 +20,14 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// handlers below so background state stays current behind the overlay.
 	if m.pw != nil {
 		if model, cmd, handled := m.updatePwForm(msg); handled {
+			return model, cmd
+		}
+	}
+	// While the search overlay is open it owns the keyboard (Esc to dismiss,
+	// arrows/PgUp/PgDn to scroll); everything else still flows below so the
+	// conversation behind it keeps updating.
+	if m.search != nil {
+		if model, cmd, handled := m.updateSearch(msg); handled {
 			return model, cmd
 		}
 	}
@@ -75,19 +85,33 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case historyMsg:
+		conv, ok := m.convs[msg.convKey]
+		if !ok {
+			return m, nil
+		}
+		if msg.prepend {
+			conv.loadingOlder = false
+		}
 		if msg.err != nil {
 			m.statusNote = "history: " + grpcErrText(msg.err)
 			return m, nil
 		}
-		if conv, ok := m.convs[msg.convKey]; ok {
-			conv.msgs = nil
-			for _, cm := range msg.messages {
-				conv.msgs = append(conv.msgs, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
-			}
-			if msg.convKey == m.activeKey {
-				m.refreshViewport()
-			}
+		if msg.prepend {
+			m.applyOlderHistory(conv, msg.messages)
+		} else {
+			m.applyInitialHistory(conv, msg.messages)
 		}
+		return m, nil
+	case searchMsg:
+		if msg.err != nil {
+			m.statusNote = "search: " + grpcErrText(msg.err)
+			return m, nil
+		}
+		if len(msg.messages) == 0 {
+			m.statusNote = "no matches for \"" + msg.query + "\""
+			return m, nil
+		}
+		m.openSearch(msg.query, msg.messages)
 		return m, nil
 	case joinedMsg:
 		conv := m.ensureConv(chKey(msg.ch.GetId()), msg.ch.GetId(), "#"+msg.ch.GetName(), false)
@@ -103,12 +127,11 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var cmd tea.Cmd
-	if m.focus == focusInput {
-		m.input, cmd = m.input.Update(msg)
-	} else {
-		m.vp, cmd = m.vp.Update(msg)
+	if m.focus != focusInput {
+		return m, m.scrollViewport(msg)
 	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
@@ -121,9 +144,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleFocus(-1)
 		return m, nil
 	case tea.KeyPgUp, tea.KeyPgDown:
-		var cmd tea.Cmd
-		m.vp, cmd = m.vp.Update(msg)
-		return m, cmd
+		return m, m.scrollViewport(msg)
 	}
 
 	if m.focus == focusChannels || m.focus == focusDMs {
@@ -162,9 +183,15 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	return m, m.scrollViewport(msg)
+}
+
+// scrollViewport forwards a scroll input to the message viewport and, when the
+// view ends up near the top, kicks off a fetch of the next older history page.
+func (m *Model) scrollViewport(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	m.vp, cmd = m.vp.Update(msg)
-	return m, cmd
+	return tea.Batch(cmd, m.maybeLoadOlder())
 }
 
 // cycleFocus advances focus through input → channels → DMs (dir 1) or the
@@ -371,6 +398,19 @@ func (m *Model) submit(text string) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m.openDM(fields[1])
+		case "/search":
+			query := strings.TrimSpace(strings.TrimPrefix(text, fields[0]))
+			if query == "" {
+				m.statusNote = "usage: /search <query>"
+				return m, nil
+			}
+			conv := m.active()
+			if conv == nil || conv.isDM {
+				m.statusNote = "/search works in a channel"
+				return m, nil
+			}
+			m.statusNote = "searching…"
+			return m, m.searchChannel(conv.id, query)
 		case "/passwd":
 			// Open the modal form rather than reading a password from the
 			// command line: nothing is sent until the user fills it in and
@@ -425,6 +465,65 @@ func (m *Model) openDM(username string) (tea.Model, tea.Cmd) {
 	}
 	m.statusNote = "unknown user " + username
 	return m, m.fetchUsers()
+}
+
+// --- channel search overlay ---
+
+// openSearch builds the results overlay from a batch of matches, rendering each
+// into a self-contained scrollable viewport sized to the current window.
+func (m *Model) openSearch(query string, msgs []*quorumv1.ChannelMessage) {
+	w, h := m.searchBoxSize()
+	vp := viewport.New(w, h)
+	rendered := make([]string, len(msgs))
+	for i, cm := range msgs {
+		entry := message{ts: fmtSearchDate(cm), sender: cm.GetSenderName(), body: cm.GetBody(), kind: kindChat, own: m.isSelf(cm.GetSenderName())}
+		rendered[i] = renderSearchResult(entry, w, query)
+	}
+	vp.SetContent(strings.Join(rendered, "\n"))
+	vp.GotoTop()
+	m.search = &searchState{query: query, count: len(msgs), vp: vp}
+	m.input.Blur()
+}
+
+// closeSearch dismisses the overlay and returns focus to the message input.
+func (m *Model) closeSearch() {
+	m.search = nil
+	m.focus = focusInput
+	m.input.Focus()
+}
+
+// searchBoxSize is the inner (content) size of the results overlay: most of the
+// window, leaving room for the border, padding, title, and footer.
+func (m *Model) searchBoxSize() (w, h int) {
+	w = max(20, min(100, m.width-6))
+	h = max(5, m.height-8)
+	return w, h
+}
+
+// updateSearch drives the open results overlay. It returns handled=true for the
+// keystrokes and mouse scrolls it consumes (Esc closes; arrows/PgUp/PgDn/Home/
+// End and the wheel scroll the results), swallowing other keys so they can't
+// leak into the message line behind it. Unrelated messages return handled=false
+// so background state keeps updating.
+func (m *Model) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			m.closeSearch()
+			return m, nil, true
+		case tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown, tea.KeyHome, tea.KeyEnd:
+			var cmd tea.Cmd
+			m.search.vp, cmd = m.search.vp.Update(msg)
+			return m, cmd, true
+		}
+		return m, nil, true // swallow other keys while the overlay is open
+	case tea.MouseMsg:
+		var cmd tea.Cmd
+		m.search.vp, cmd = m.search.vp.Update(msg)
+		return m, cmd, true
+	}
+	return m, nil, false
 }
 
 // --- password change modal ---
@@ -544,6 +643,7 @@ var helpLines = []string{
 	"  /join <name>     join an existing channel",
 	"  /leave           leave the current channel",
 	"  /dm <user>       open an end-to-end-encrypted direct message",
+	"  /search <text>   search this channel's history",
 	"  /passwd          change your password (opens a private form)",
 	"  /commands        list commands offered by bots",
 	"  /help            show this help",
@@ -555,7 +655,7 @@ var helpLines = []string{
 	"  Enter            open the selected conversation (joins if needed)",
 	"  click            open a channel or DM in the sidebar",
 	"  wheel over panel scroll the channels or DMs list",
-	"  PgUp/PgDn        scroll the message history",
+	"  PgUp/PgDn        scroll history (scroll up to load older messages)",
 	"  Ctrl+C           quit",
 }
 

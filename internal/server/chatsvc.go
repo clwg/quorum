@@ -23,6 +23,7 @@ const (
 	maxMessageBytes   = 4096
 	maxHistoryLimit   = 200
 	defaultHistory    = 50
+	maxSearchResults  = 50
 	maxChannelNameLen = 64
 )
 
@@ -283,6 +284,44 @@ func (s *ChatService) GetChannelHistory(ctx context.Context, req *quorumv1.GetCh
 		return nil, status.Error(codes.Internal, "history failed")
 	}
 	resp := &quorumv1.GetChannelHistoryResponse{}
+	for _, m := range msgs {
+		resp.Messages = append(resp.Messages, &quorumv1.ChannelMessage{
+			Id:         m.ID,
+			ChannelId:  m.ChannelID,
+			SenderId:   m.SenderID,
+			SenderName: m.SenderName,
+			Body:       m.Body,
+			SentAt:     timestamppb.New(time.UnixMilli(m.CreatedAt)),
+		})
+	}
+	return resp, nil
+}
+
+func (s *ChatService) SearchChannelMessages(ctx context.Context, req *quorumv1.SearchChannelMessagesRequest) (*quorumv1.SearchChannelMessagesResponse, error) {
+	ident, err := mustIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	query := strings.TrimSpace(req.GetQuery())
+	if query == "" {
+		return nil, status.Error(codes.InvalidArgument, "empty search query")
+	}
+	member, err := s.store.IsChannelMember(ctx, req.GetChannelId(), ident.UserID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "membership check failed")
+	}
+	if !member {
+		return nil, status.Error(codes.PermissionDenied, "not a channel member")
+	}
+	limit := int(req.GetLimit())
+	if limit <= 0 || limit > maxSearchResults {
+		limit = maxSearchResults
+	}
+	msgs, err := s.store.SearchChannelMessages(ctx, req.GetChannelId(), query, limit)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "search failed")
+	}
+	resp := &quorumv1.SearchChannelMessagesResponse{}
 	for _, m := range msgs {
 		resp.Messages = append(resp.Messages, &quorumv1.ChannelMessage{
 			Id:         m.ID,

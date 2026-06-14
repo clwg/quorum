@@ -22,6 +22,11 @@ type conversation struct {
 
 	historyLoaded bool
 
+	// Channel history pagination (scroll up to load older messages).
+	oldestID     int64 // server id of the oldest loaded message; the next page's cursor
+	hasMore      bool  // older messages may still exist on the server
+	loadingOlder bool  // an older-history fetch is in flight
+
 	// DM E2EE session state
 	established bool
 	fingerprint string
@@ -63,6 +68,15 @@ func fmtTime(cm *quorumv1.ChannelMessage) string {
 		return time.Now().Format("15:04")
 	}
 	return cm.GetSentAt().AsTime().Local().Format("15:04")
+}
+
+// fmtSearchDate formats a search match with its date, since matches can be days
+// or weeks old where a bare clock time would be ambiguous.
+func fmtSearchDate(cm *quorumv1.ChannelMessage) string {
+	if cm.GetSentAt() == nil {
+		return time.Now().Format("Jan 02 15:04")
+	}
+	return cm.GetSentAt().AsTime().Local().Format("Jan 02 15:04")
 }
 
 // grpcErrText strips the gRPC "desc = " prefix for display.
