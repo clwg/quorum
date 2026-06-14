@@ -16,11 +16,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 func main() {
 	out := flag.String("out", "certs", "output directory")
+	hosts := flag.String("hosts", "", "comma-separated extra SANs (DNS names or IPs) to add alongside localhost, e.g. 192.168.0.190,quorum.local")
 	flag.Parse()
 
 	if err := os.MkdirAll(*out, 0o755); err != nil {
@@ -49,6 +51,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Default loopback SANs, plus any extra hosts/IPs the caller requests.
+	dnsNames := []string{"localhost"}
+	ipAddrs := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	for _, h := range strings.Split(*hosts, ",") {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			continue
+		}
+		if ip := net.ParseIP(h); ip != nil {
+			ipAddrs = append(ipAddrs, ip)
+		} else {
+			dnsNames = append(dnsNames, h)
+		}
+	}
+
 	srvTmpl := &x509.Certificate{
 		SerialNumber: randSerial(),
 		Subject:      pkix.Name{CommonName: "quorum dev server", Organization: []string{"quorum"}},
@@ -56,8 +74,8 @@ func main() {
 		NotAfter:     time.Now().AddDate(1, 0, 0),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{"localhost"},
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
+		DNSNames:     dnsNames,
+		IPAddresses:  ipAddrs,
 	}
 	caCert, err := x509.ParseCertificate(caDER)
 	if err != nil {
