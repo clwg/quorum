@@ -1719,7 +1719,7 @@ const file_quorum_v1_chat_proto_rawDesc = "" +
 	"\tListUsers\x12\x1b.quorum.v1.ListUsersRequest\x1a\x1c.quorum.v1.ListUsersResponse\x12I\n" +
 	"\n" +
 	"SendDirect\x12\x1c.quorum.v1.SendDirectRequest\x1a\x1d.quorum.v1.SendDirectResponse\x12[\n" +
-	"\x10RegisterCommands\x12\".quorum.v1.RegisterCommandsRequest\x1a#.quorum.v1.RegisterCommandsResponseB1Z/github.com/clwg/quorum/gen/quorum/v1;quorumv1b\x06proto3"
+	"\x10RegisterCommands\x12\".quorum.v1.RegisterCommandsRequest\x1a#.quorum.v1.RegisterCommandsResponseB/Z-github.com/clwg/quorum/gen/quorum/v1;quorumv1b\x06proto3"
 
 var (
 	file_quorum_v1_chat_proto_rawDescOnce sync.Once
