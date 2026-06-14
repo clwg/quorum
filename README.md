@@ -184,13 +184,13 @@ docker run --rm -p 8443:8443 -v quorum-data:/data quorum:latest \
 
 ```
 docker run --rm -it -v quorum-data:/data quorum:latest \
-  quorum-client --addr 192.168.0.190:8443 --ca certs/ca.pem
+  quorum-client --addr <hostname or ip>:8443 --ca certs/ca.pem
 ```
 
 #### Admin TUI
 
 docker run --rm -it -v quorum-data:/data quorum:latest \
-  quorum-admin --addr 192.168.0.190:8443 --ca certs/ca.pem
+  quorum-admin --addr <hostname or ip>:8443 --ca certs/ca.pem
 
 
 # Poke around / list binaries
