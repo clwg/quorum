@@ -1,0 +1,20 @@
+# Build output and local state — never copy into the build context.
+bin/
+certs/
+*.db
+*.db-wal
+*.db-shm
+quorum-gui.app
+
+# VCS, docs, and editor cruft.
+.git/
+.gitignore
+.ignore
+.DS_Store
+docs/
+screenshots/
+icon/
+README.md
+LICENSE.md
+Dockerfile
+.dockerignore

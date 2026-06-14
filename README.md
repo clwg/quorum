@@ -4,8 +4,8 @@ A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
 
-![ui](screenshots/tui.png)
-![gui](screenshots/gui.png)
+![ui](images/tui.png)
+![gui](images/gui.png)
 
 ## Components
 
@@ -67,9 +67,18 @@ Or build components individually:
 Quorum uses TLS. Generate a CA and server certificate into the `certs/`
 directory:
 
+
+Generate a cert for specific hostname or IP replacing the <hostname or ip> with the appropriate value.
+
+```bash
+quorum-gencert -out certs -hosts <hostname or ip>
+````
+
+Or for local testing and development - 127.0.0.1/localhost certs only
 ```bash
 make certs
 ```
+
 
 ### Running the application
 
@@ -140,6 +149,52 @@ export QUORUM_BOT_TOKEN=qbot_...
 go run ./examples/dicebot --ca certs/ca.pem --channel general
 # then in a client: /roll 2d6
 ```
+
+## Docker
+
+### Build image
+
+```
+docker build -t quorum:latest .
+```
+
+### Generate certs into a persistent volume
+You will need to generate a cert with a host entry if you want the service accessible over the network by replacing <hostname or ip> with the appropriate entry for what clients will be connect to.
+
+```
+docker run --rm -v quorum-data:/data quorum:latest \
+quorum-gencert -out certs -hosts <hostname or ip>
+```
+
+### Create admin user
+Initialize the database and create an admin user
+```
+docker run --rm -it -p 8443:8443 -v quorum-data:/data quorum:latest \
+  quorum-server --listen :8443 --cert certs/server.pem --key certs/server-key.pem --db quorum.db --init-admin admin
+```
+
+### Run the server
+```
+docker run --rm -p 8443:8443 -v quorum-data:/data quorum:latest \
+  quorum-server --listen :8443 --cert certs/server.pem --key certs/server-key.pem --db quorum.db
+```
+### TUI
+
+#### Chat Client TUI
+
+```
+docker run --rm -it -v quorum-data:/data quorum:latest \
+  quorum-client --addr <hostname or ip>:8443 --ca certs/ca.pem
+```
+
+#### Admin TUI
+```
+docker run --rm -it -v quorum-data:/data quorum:latest \
+  quorum-admin --addr <hostname or ip>:8443 --ca certs/ca.pem
+```
+
+# Poke around / list binaries
+docker run --rm -it quorum:latest        # drops to a shell
 
 
 ## Documentation
