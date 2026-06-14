@@ -343,6 +343,67 @@ func TestChannelFlow(t *testing.T) {
 	}
 }
 
+func TestSearchChannelMessages(t *testing.T) {
+	e := newTestEnv(t)
+	e.createUser(t, "alice", "password123", "user")
+	e.createUser(t, "bob", "password123", "user")
+	_, aCtx := e.login(t, "alice", "password123")
+	_, bCtx := e.login(t, "bob", "password123")
+
+	ch, err := e.chat.CreateChannel(aCtx, &quorumv1.CreateChannelRequest{Name: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []string{
+		"Deploy the staging build",
+		"the deploy failed",
+		"lunch at noon",
+		"100% done",
+	} {
+		if _, err := e.chat.SendChannelMessage(aCtx, &quorumv1.SendChannelMessageRequest{ChannelId: ch.Id, Body: body}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Case-insensitive substring match, returned ascending by id.
+	res, err := e.chat.SearchChannelMessages(aCtx, &quorumv1.SearchChannelMessagesRequest{ChannelId: ch.Id, Query: "deploy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Messages) != 2 || res.Messages[0].Body != "Deploy the staging build" || res.Messages[1].Body != "the deploy failed" {
+		t.Fatalf("deploy search: %+v", res.Messages)
+	}
+
+	// LIKE wildcards in the query are matched literally (escapeLike), so "100%"
+	// matches only the message that literally contains "100%".
+	res, err = e.chat.SearchChannelMessages(aCtx, &quorumv1.SearchChannelMessagesRequest{ChannelId: ch.Id, Query: "100%"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Messages) != 1 || res.Messages[0].Body != "100% done" {
+		t.Fatalf("literal-wildcard search: %+v", res.Messages)
+	}
+
+	// No matches is an empty result, not an error.
+	res, err = e.chat.SearchChannelMessages(aCtx, &quorumv1.SearchChannelMessagesRequest{ChannelId: ch.Id, Query: "nonexistent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Messages) != 0 {
+		t.Fatalf("no-match search: %+v", res.Messages)
+	}
+
+	// A blank query is rejected before any lookup.
+	if _, err := e.chat.SearchChannelMessages(aCtx, &quorumv1.SearchChannelMessagesRequest{ChannelId: ch.Id, Query: "   "}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("blank query: want InvalidArgument, got %v", err)
+	}
+
+	// Non-members cannot search a channel.
+	if _, err := e.chat.SearchChannelMessages(bCtx, &quorumv1.SearchChannelMessagesRequest{ChannelId: ch.Id, Query: "deploy"}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("non-member search: want PermissionDenied, got %v", err)
+	}
+}
+
 func TestPresence(t *testing.T) {
 	e := newTestEnv(t)
 	aliceID := e.createUser(t, "alice", "password123", "user")

@@ -360,6 +360,19 @@ func (a *App) submit(text string) {
 			}
 			a.openDM(fields[1])
 			return
+		case "/search":
+			query := strings.TrimSpace(strings.TrimPrefix(text, fields[0]))
+			if query == "" {
+				a.setStatus("usage: /search <query>")
+				return
+			}
+			conv := a.active()
+			if conv == nil || conv.isDM {
+				a.setStatus("/search works in a channel")
+				return
+			}
+			a.searchChannel(conv.id, query)
+			return
 		case "/passwd":
 			// Open a dedicated dialog rather than reading a password from the
 			// message line: nothing is sent until the user fills it in and
@@ -476,6 +489,34 @@ func (a *App) applyChannels(chans []*quorumv1.Channel, err error) {
 			a.setStatus("no such channel #" + name)
 		}
 	}
+}
+
+// searchChannel runs a server-side search of the channel's history off the UI
+// goroutine and shows the matches (or a status note when there are none) back on
+// it. The server caps and orders the results.
+func (a *App) searchChannel(channelID, query string) {
+	a.setStatus("searching…")
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		msgs, err := a.client.SearchChannelMessages(ctx, channelID, query, 0)
+		fyne.Do(func() {
+			if err != nil {
+				a.setStatus("search: " + grpcErrText(err))
+				return
+			}
+			if len(msgs) == 0 {
+				a.setStatus("no matches for \"" + query + "\"")
+				return
+			}
+			results := make([]message, len(msgs))
+			for i, cm := range msgs {
+				results[i] = chatLine(fmtSearchDate(cm), cm.GetSenderName(), cm.GetBody(), a.isSelf(cm.GetSenderName()))
+			}
+			a.setStatus("")
+			a.showSearchResults(query, results)
+		})
+	}()
 }
 
 func (a *App) fetchUsers() {

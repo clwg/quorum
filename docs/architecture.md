@@ -38,10 +38,12 @@ reconnect, and (for the two human clients) the E2EE session manager.
 - **`cmd/quorum-client`** - the chat TUI ([`internal/tui/chat`](../internal/tui/chat)),
   a bubbletea app: channel/DM sidebar, message viewport, input line, status
   bar with connection state and E2EE fingerprints. Slash commands are parsed
-  client-side (`/create`, `/join`, `/leave`, `/dm`, `/passwd`, `/commands`,
-  `/help`, `/quit`). `/help` is rendered locally; `/passwd` opens a modal form
-  that calls `AuthService.ChangePassword`; `/commands` asks the server for the
-  bot commands registered in this channel.
+  client-side (`/create`, `/join`, `/leave`, `/dm`, `/search`, `/passwd`,
+  `/commands`, `/help`, `/quit`). `/help` is rendered locally; `/search` calls
+  `ChatService.SearchChannelMessages` and shows the matches in a dedicated
+  results overlay; `/passwd` opens a modal form that calls
+  `AuthService.ChangePassword`; `/commands` asks the server for the bot commands
+  registered in this channel.
 - **`cmd/quorum-admin`** - the admin TUI ([`internal/tui/admin`](../internal/tui/admin)),
   driving `AdminService`.
 - **`sdk/bot` + `examples/dicebot`** - bots are ordinary token-authenticated
@@ -80,9 +82,11 @@ client; the rest are unary.
 - **`Subscribe`** registers a hub subscriber and streams `ServerEvent`s. A
   newer `Subscribe` for the same user kicks the older stream.
 - **Channel ops** (`SendChannelMessage`, `Create/Join/Leave/ListChannels`,
-  `GetChannelHistory`, `ListUsers`) check membership, persist where relevant,
-  and fan out events. Sender identity is always taken from the authenticated
-  context, never from the request - clients cannot spoof a sender.
+  `GetChannelHistory`, `SearchChannelMessages`, `ListUsers`) check membership,
+  persist where relevant, and fan out events. Sender identity is always taken
+  from the authenticated context, never from the request - clients cannot spoof
+  a sender. `SearchChannelMessages` runs a case-insensitive `LIKE` substring
+  match scoped to one channel, returning the most recent matches.
 - **`SendDirect`** relays one opaque `DirectEnvelope` to a connected recipient
   and persists nothing. It overwrites the sender fields, enforces a payload
   size cap, and is rate-limited (20/s/sender, burst 40). Offline recipient ⇒

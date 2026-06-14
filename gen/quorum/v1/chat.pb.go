@@ -1230,6 +1230,110 @@ func (x *GetChannelHistoryResponse) GetMessages() []*ChannelMessage {
 	return nil
 }
 
+type SearchChannelMessagesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChannelId     string                 `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	Query         string                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"` // server caps this
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchChannelMessagesRequest) Reset() {
+	*x = SearchChannelMessagesRequest{}
+	mi := &file_quorum_v1_chat_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchChannelMessagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchChannelMessagesRequest) ProtoMessage() {}
+
+func (x *SearchChannelMessagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_quorum_v1_chat_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchChannelMessagesRequest.ProtoReflect.Descriptor instead.
+func (*SearchChannelMessagesRequest) Descriptor() ([]byte, []int) {
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SearchChannelMessagesRequest) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
+}
+
+func (x *SearchChannelMessagesRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *SearchChannelMessagesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type SearchChannelMessagesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*ChannelMessage      `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"` // ascending by id (most recent matches)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchChannelMessagesResponse) Reset() {
+	*x = SearchChannelMessagesResponse{}
+	mi := &file_quorum_v1_chat_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchChannelMessagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchChannelMessagesResponse) ProtoMessage() {}
+
+func (x *SearchChannelMessagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_quorum_v1_chat_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchChannelMessagesResponse.ProtoReflect.Descriptor instead.
+func (*SearchChannelMessagesResponse) Descriptor() ([]byte, []int) {
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *SearchChannelMessagesResponse) GetMessages() []*ChannelMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 type ListUsersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1238,7 +1342,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[19]
+	mi := &file_quorum_v1_chat_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1354,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[19]
+	mi := &file_quorum_v1_chat_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1367,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{19}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{21}
 }
 
 type ListUsersResponse struct {
@@ -1275,7 +1379,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[20]
+	mi := &file_quorum_v1_chat_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1287,7 +1391,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[20]
+	mi := &file_quorum_v1_chat_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1300,7 +1404,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{20}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -1322,7 +1426,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[21]
+	mi := &file_quorum_v1_chat_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1334,7 +1438,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[21]
+	mi := &file_quorum_v1_chat_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1347,7 +1451,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{21}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *User) GetId() string {
@@ -1387,7 +1491,7 @@ type SendDirectRequest struct {
 
 func (x *SendDirectRequest) Reset() {
 	*x = SendDirectRequest{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[22]
+	mi := &file_quorum_v1_chat_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1399,7 +1503,7 @@ func (x *SendDirectRequest) String() string {
 func (*SendDirectRequest) ProtoMessage() {}
 
 func (x *SendDirectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[22]
+	mi := &file_quorum_v1_chat_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1412,7 +1516,7 @@ func (x *SendDirectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendDirectRequest.ProtoReflect.Descriptor instead.
 func (*SendDirectRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{22}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SendDirectRequest) GetEnvelope() *DirectEnvelope {
@@ -1430,7 +1534,7 @@ type SendDirectResponse struct {
 
 func (x *SendDirectResponse) Reset() {
 	*x = SendDirectResponse{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[23]
+	mi := &file_quorum_v1_chat_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1442,7 +1546,7 @@ func (x *SendDirectResponse) String() string {
 func (*SendDirectResponse) ProtoMessage() {}
 
 func (x *SendDirectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[23]
+	mi := &file_quorum_v1_chat_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +1559,7 @@ func (x *SendDirectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendDirectResponse.ProtoReflect.Descriptor instead.
 func (*SendDirectResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{23}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{25}
 }
 
 type RegisterCommandsRequest struct {
@@ -1467,7 +1571,7 @@ type RegisterCommandsRequest struct {
 
 func (x *RegisterCommandsRequest) Reset() {
 	*x = RegisterCommandsRequest{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[24]
+	mi := &file_quorum_v1_chat_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1479,7 +1583,7 @@ func (x *RegisterCommandsRequest) String() string {
 func (*RegisterCommandsRequest) ProtoMessage() {}
 
 func (x *RegisterCommandsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[24]
+	mi := &file_quorum_v1_chat_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1492,7 +1596,7 @@ func (x *RegisterCommandsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterCommandsRequest.ProtoReflect.Descriptor instead.
 func (*RegisterCommandsRequest) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{24}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RegisterCommandsRequest) GetCommands() []*CommandSpec {
@@ -1512,7 +1616,7 @@ type CommandSpec struct {
 
 func (x *CommandSpec) Reset() {
 	*x = CommandSpec{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[25]
+	mi := &file_quorum_v1_chat_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1524,7 +1628,7 @@ func (x *CommandSpec) String() string {
 func (*CommandSpec) ProtoMessage() {}
 
 func (x *CommandSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[25]
+	mi := &file_quorum_v1_chat_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1537,7 +1641,7 @@ func (x *CommandSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandSpec.ProtoReflect.Descriptor instead.
 func (*CommandSpec) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{25}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CommandSpec) GetName() string {
@@ -1563,7 +1667,7 @@ type RegisterCommandsResponse struct {
 
 func (x *RegisterCommandsResponse) Reset() {
 	*x = RegisterCommandsResponse{}
-	mi := &file_quorum_v1_chat_proto_msgTypes[26]
+	mi := &file_quorum_v1_chat_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1575,7 +1679,7 @@ func (x *RegisterCommandsResponse) String() string {
 func (*RegisterCommandsResponse) ProtoMessage() {}
 
 func (x *RegisterCommandsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_quorum_v1_chat_proto_msgTypes[26]
+	mi := &file_quorum_v1_chat_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1588,7 +1692,7 @@ func (x *RegisterCommandsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterCommandsResponse.ProtoReflect.Descriptor instead.
 func (*RegisterCommandsResponse) Descriptor() ([]byte, []int) {
-	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{26}
+	return file_quorum_v1_chat_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RegisterCommandsResponse) GetDuplicateNames() []string {
@@ -1689,6 +1793,13 @@ const file_quorum_v1_chat_proto_rawDesc = "" +
 	"\tbefore_id\x18\x02 \x01(\x03R\bbeforeId\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\"R\n" +
 	"\x19GetChannelHistoryResponse\x125\n" +
+	"\bmessages\x18\x01 \x03(\v2\x19.quorum.v1.ChannelMessageR\bmessages\"i\n" +
+	"\x1cSearchChannelMessagesRequest\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x01 \x01(\tR\tchannelId\x12\x14\n" +
+	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"V\n" +
+	"\x1dSearchChannelMessagesResponse\x125\n" +
 	"\bmessages\x18\x01 \x03(\v2\x19.quorum.v1.ChannelMessageR\bmessages\"\x12\n" +
 	"\x10ListUsersRequest\":\n" +
 	"\x11ListUsersResponse\x12%\n" +
@@ -1707,7 +1818,7 @@ const file_quorum_v1_chat_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04help\x18\x02 \x01(\tR\x04help\"C\n" +
 	"\x18RegisterCommandsResponse\x12'\n" +
-	"\x0fduplicate_names\x18\x01 \x03(\tR\x0eduplicateNames2\xba\x06\n" +
+	"\x0fduplicate_names\x18\x01 \x03(\tR\x0eduplicateNames2\xa6\a\n" +
 	"\vChatService\x12B\n" +
 	"\tSubscribe\x12\x1b.quorum.v1.SubscribeRequest\x1a\x16.quorum.v1.ServerEvent0\x01\x12a\n" +
 	"\x12SendChannelMessage\x12$.quorum.v1.SendChannelMessageRequest\x1a%.quorum.v1.SendChannelMessageResponse\x12D\n" +
@@ -1715,7 +1826,8 @@ const file_quorum_v1_chat_proto_rawDesc = "" +
 	"\vJoinChannel\x12\x1d.quorum.v1.JoinChannelRequest\x1a\x1e.quorum.v1.JoinChannelResponse\x12O\n" +
 	"\fLeaveChannel\x12\x1e.quorum.v1.LeaveChannelRequest\x1a\x1f.quorum.v1.LeaveChannelResponse\x12O\n" +
 	"\fListChannels\x12\x1e.quorum.v1.ListChannelsRequest\x1a\x1f.quorum.v1.ListChannelsResponse\x12^\n" +
-	"\x11GetChannelHistory\x12#.quorum.v1.GetChannelHistoryRequest\x1a$.quorum.v1.GetChannelHistoryResponse\x12F\n" +
+	"\x11GetChannelHistory\x12#.quorum.v1.GetChannelHistoryRequest\x1a$.quorum.v1.GetChannelHistoryResponse\x12j\n" +
+	"\x15SearchChannelMessages\x12'.quorum.v1.SearchChannelMessagesRequest\x1a(.quorum.v1.SearchChannelMessagesResponse\x12F\n" +
 	"\tListUsers\x12\x1b.quorum.v1.ListUsersRequest\x1a\x1c.quorum.v1.ListUsersResponse\x12I\n" +
 	"\n" +
 	"SendDirect\x12\x1c.quorum.v1.SendDirectRequest\x1a\x1d.quorum.v1.SendDirectResponse\x12[\n" +
@@ -1734,38 +1846,40 @@ func file_quorum_v1_chat_proto_rawDescGZIP() []byte {
 }
 
 var file_quorum_v1_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_quorum_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_quorum_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_quorum_v1_chat_proto_goTypes = []any{
-	(DirectEnvelope_Type)(0),           // 0: quorum.v1.DirectEnvelope.Type
-	(ChannelEvent_Type)(0),             // 1: quorum.v1.ChannelEvent.Type
-	(*SubscribeRequest)(nil),           // 2: quorum.v1.SubscribeRequest
-	(*ServerEvent)(nil),                // 3: quorum.v1.ServerEvent
-	(*Channel)(nil),                    // 4: quorum.v1.Channel
-	(*ChannelMessage)(nil),             // 5: quorum.v1.ChannelMessage
-	(*DirectEnvelope)(nil),             // 6: quorum.v1.DirectEnvelope
-	(*PresenceEvent)(nil),              // 7: quorum.v1.PresenceEvent
-	(*ChannelEvent)(nil),               // 8: quorum.v1.ChannelEvent
-	(*SystemNotice)(nil),               // 9: quorum.v1.SystemNotice
-	(*SendChannelMessageRequest)(nil),  // 10: quorum.v1.SendChannelMessageRequest
-	(*SendChannelMessageResponse)(nil), // 11: quorum.v1.SendChannelMessageResponse
-	(*CreateChannelRequest)(nil),       // 12: quorum.v1.CreateChannelRequest
-	(*JoinChannelRequest)(nil),         // 13: quorum.v1.JoinChannelRequest
-	(*JoinChannelResponse)(nil),        // 14: quorum.v1.JoinChannelResponse
-	(*LeaveChannelRequest)(nil),        // 15: quorum.v1.LeaveChannelRequest
-	(*LeaveChannelResponse)(nil),       // 16: quorum.v1.LeaveChannelResponse
-	(*ListChannelsRequest)(nil),        // 17: quorum.v1.ListChannelsRequest
-	(*ListChannelsResponse)(nil),       // 18: quorum.v1.ListChannelsResponse
-	(*GetChannelHistoryRequest)(nil),   // 19: quorum.v1.GetChannelHistoryRequest
-	(*GetChannelHistoryResponse)(nil),  // 20: quorum.v1.GetChannelHistoryResponse
-	(*ListUsersRequest)(nil),           // 21: quorum.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),          // 22: quorum.v1.ListUsersResponse
-	(*User)(nil),                       // 23: quorum.v1.User
-	(*SendDirectRequest)(nil),          // 24: quorum.v1.SendDirectRequest
-	(*SendDirectResponse)(nil),         // 25: quorum.v1.SendDirectResponse
-	(*RegisterCommandsRequest)(nil),    // 26: quorum.v1.RegisterCommandsRequest
-	(*CommandSpec)(nil),                // 27: quorum.v1.CommandSpec
-	(*RegisterCommandsResponse)(nil),   // 28: quorum.v1.RegisterCommandsResponse
-	(*timestamppb.Timestamp)(nil),      // 29: google.protobuf.Timestamp
+	(DirectEnvelope_Type)(0),              // 0: quorum.v1.DirectEnvelope.Type
+	(ChannelEvent_Type)(0),                // 1: quorum.v1.ChannelEvent.Type
+	(*SubscribeRequest)(nil),              // 2: quorum.v1.SubscribeRequest
+	(*ServerEvent)(nil),                   // 3: quorum.v1.ServerEvent
+	(*Channel)(nil),                       // 4: quorum.v1.Channel
+	(*ChannelMessage)(nil),                // 5: quorum.v1.ChannelMessage
+	(*DirectEnvelope)(nil),                // 6: quorum.v1.DirectEnvelope
+	(*PresenceEvent)(nil),                 // 7: quorum.v1.PresenceEvent
+	(*ChannelEvent)(nil),                  // 8: quorum.v1.ChannelEvent
+	(*SystemNotice)(nil),                  // 9: quorum.v1.SystemNotice
+	(*SendChannelMessageRequest)(nil),     // 10: quorum.v1.SendChannelMessageRequest
+	(*SendChannelMessageResponse)(nil),    // 11: quorum.v1.SendChannelMessageResponse
+	(*CreateChannelRequest)(nil),          // 12: quorum.v1.CreateChannelRequest
+	(*JoinChannelRequest)(nil),            // 13: quorum.v1.JoinChannelRequest
+	(*JoinChannelResponse)(nil),           // 14: quorum.v1.JoinChannelResponse
+	(*LeaveChannelRequest)(nil),           // 15: quorum.v1.LeaveChannelRequest
+	(*LeaveChannelResponse)(nil),          // 16: quorum.v1.LeaveChannelResponse
+	(*ListChannelsRequest)(nil),           // 17: quorum.v1.ListChannelsRequest
+	(*ListChannelsResponse)(nil),          // 18: quorum.v1.ListChannelsResponse
+	(*GetChannelHistoryRequest)(nil),      // 19: quorum.v1.GetChannelHistoryRequest
+	(*GetChannelHistoryResponse)(nil),     // 20: quorum.v1.GetChannelHistoryResponse
+	(*SearchChannelMessagesRequest)(nil),  // 21: quorum.v1.SearchChannelMessagesRequest
+	(*SearchChannelMessagesResponse)(nil), // 22: quorum.v1.SearchChannelMessagesResponse
+	(*ListUsersRequest)(nil),              // 23: quorum.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),             // 24: quorum.v1.ListUsersResponse
+	(*User)(nil),                          // 25: quorum.v1.User
+	(*SendDirectRequest)(nil),             // 26: quorum.v1.SendDirectRequest
+	(*SendDirectResponse)(nil),            // 27: quorum.v1.SendDirectResponse
+	(*RegisterCommandsRequest)(nil),       // 28: quorum.v1.RegisterCommandsRequest
+	(*CommandSpec)(nil),                   // 29: quorum.v1.CommandSpec
+	(*RegisterCommandsResponse)(nil),      // 30: quorum.v1.RegisterCommandsResponse
+	(*timestamppb.Timestamp)(nil),         // 31: google.protobuf.Timestamp
 }
 var file_quorum_v1_chat_proto_depIdxs = []int32{
 	5,  // 0: quorum.v1.ServerEvent.channel_message:type_name -> quorum.v1.ChannelMessage
@@ -1773,43 +1887,46 @@ var file_quorum_v1_chat_proto_depIdxs = []int32{
 	7,  // 2: quorum.v1.ServerEvent.presence:type_name -> quorum.v1.PresenceEvent
 	8,  // 3: quorum.v1.ServerEvent.channel_event:type_name -> quorum.v1.ChannelEvent
 	9,  // 4: quorum.v1.ServerEvent.system:type_name -> quorum.v1.SystemNotice
-	29, // 5: quorum.v1.Channel.created_at:type_name -> google.protobuf.Timestamp
-	29, // 6: quorum.v1.ChannelMessage.sent_at:type_name -> google.protobuf.Timestamp
+	31, // 5: quorum.v1.Channel.created_at:type_name -> google.protobuf.Timestamp
+	31, // 6: quorum.v1.ChannelMessage.sent_at:type_name -> google.protobuf.Timestamp
 	0,  // 7: quorum.v1.DirectEnvelope.type:type_name -> quorum.v1.DirectEnvelope.Type
 	1,  // 8: quorum.v1.ChannelEvent.type:type_name -> quorum.v1.ChannelEvent.Type
 	4,  // 9: quorum.v1.ChannelEvent.channel:type_name -> quorum.v1.Channel
-	29, // 10: quorum.v1.SystemNotice.server_time:type_name -> google.protobuf.Timestamp
+	31, // 10: quorum.v1.SystemNotice.server_time:type_name -> google.protobuf.Timestamp
 	4,  // 11: quorum.v1.JoinChannelResponse.channel:type_name -> quorum.v1.Channel
 	4,  // 12: quorum.v1.ListChannelsResponse.channels:type_name -> quorum.v1.Channel
 	5,  // 13: quorum.v1.GetChannelHistoryResponse.messages:type_name -> quorum.v1.ChannelMessage
-	23, // 14: quorum.v1.ListUsersResponse.users:type_name -> quorum.v1.User
-	6,  // 15: quorum.v1.SendDirectRequest.envelope:type_name -> quorum.v1.DirectEnvelope
-	27, // 16: quorum.v1.RegisterCommandsRequest.commands:type_name -> quorum.v1.CommandSpec
-	2,  // 17: quorum.v1.ChatService.Subscribe:input_type -> quorum.v1.SubscribeRequest
-	10, // 18: quorum.v1.ChatService.SendChannelMessage:input_type -> quorum.v1.SendChannelMessageRequest
-	12, // 19: quorum.v1.ChatService.CreateChannel:input_type -> quorum.v1.CreateChannelRequest
-	13, // 20: quorum.v1.ChatService.JoinChannel:input_type -> quorum.v1.JoinChannelRequest
-	15, // 21: quorum.v1.ChatService.LeaveChannel:input_type -> quorum.v1.LeaveChannelRequest
-	17, // 22: quorum.v1.ChatService.ListChannels:input_type -> quorum.v1.ListChannelsRequest
-	19, // 23: quorum.v1.ChatService.GetChannelHistory:input_type -> quorum.v1.GetChannelHistoryRequest
-	21, // 24: quorum.v1.ChatService.ListUsers:input_type -> quorum.v1.ListUsersRequest
-	24, // 25: quorum.v1.ChatService.SendDirect:input_type -> quorum.v1.SendDirectRequest
-	26, // 26: quorum.v1.ChatService.RegisterCommands:input_type -> quorum.v1.RegisterCommandsRequest
-	3,  // 27: quorum.v1.ChatService.Subscribe:output_type -> quorum.v1.ServerEvent
-	11, // 28: quorum.v1.ChatService.SendChannelMessage:output_type -> quorum.v1.SendChannelMessageResponse
-	4,  // 29: quorum.v1.ChatService.CreateChannel:output_type -> quorum.v1.Channel
-	14, // 30: quorum.v1.ChatService.JoinChannel:output_type -> quorum.v1.JoinChannelResponse
-	16, // 31: quorum.v1.ChatService.LeaveChannel:output_type -> quorum.v1.LeaveChannelResponse
-	18, // 32: quorum.v1.ChatService.ListChannels:output_type -> quorum.v1.ListChannelsResponse
-	20, // 33: quorum.v1.ChatService.GetChannelHistory:output_type -> quorum.v1.GetChannelHistoryResponse
-	22, // 34: quorum.v1.ChatService.ListUsers:output_type -> quorum.v1.ListUsersResponse
-	25, // 35: quorum.v1.ChatService.SendDirect:output_type -> quorum.v1.SendDirectResponse
-	28, // 36: quorum.v1.ChatService.RegisterCommands:output_type -> quorum.v1.RegisterCommandsResponse
-	27, // [27:37] is the sub-list for method output_type
-	17, // [17:27] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	5,  // 14: quorum.v1.SearchChannelMessagesResponse.messages:type_name -> quorum.v1.ChannelMessage
+	25, // 15: quorum.v1.ListUsersResponse.users:type_name -> quorum.v1.User
+	6,  // 16: quorum.v1.SendDirectRequest.envelope:type_name -> quorum.v1.DirectEnvelope
+	29, // 17: quorum.v1.RegisterCommandsRequest.commands:type_name -> quorum.v1.CommandSpec
+	2,  // 18: quorum.v1.ChatService.Subscribe:input_type -> quorum.v1.SubscribeRequest
+	10, // 19: quorum.v1.ChatService.SendChannelMessage:input_type -> quorum.v1.SendChannelMessageRequest
+	12, // 20: quorum.v1.ChatService.CreateChannel:input_type -> quorum.v1.CreateChannelRequest
+	13, // 21: quorum.v1.ChatService.JoinChannel:input_type -> quorum.v1.JoinChannelRequest
+	15, // 22: quorum.v1.ChatService.LeaveChannel:input_type -> quorum.v1.LeaveChannelRequest
+	17, // 23: quorum.v1.ChatService.ListChannels:input_type -> quorum.v1.ListChannelsRequest
+	19, // 24: quorum.v1.ChatService.GetChannelHistory:input_type -> quorum.v1.GetChannelHistoryRequest
+	21, // 25: quorum.v1.ChatService.SearchChannelMessages:input_type -> quorum.v1.SearchChannelMessagesRequest
+	23, // 26: quorum.v1.ChatService.ListUsers:input_type -> quorum.v1.ListUsersRequest
+	26, // 27: quorum.v1.ChatService.SendDirect:input_type -> quorum.v1.SendDirectRequest
+	28, // 28: quorum.v1.ChatService.RegisterCommands:input_type -> quorum.v1.RegisterCommandsRequest
+	3,  // 29: quorum.v1.ChatService.Subscribe:output_type -> quorum.v1.ServerEvent
+	11, // 30: quorum.v1.ChatService.SendChannelMessage:output_type -> quorum.v1.SendChannelMessageResponse
+	4,  // 31: quorum.v1.ChatService.CreateChannel:output_type -> quorum.v1.Channel
+	14, // 32: quorum.v1.ChatService.JoinChannel:output_type -> quorum.v1.JoinChannelResponse
+	16, // 33: quorum.v1.ChatService.LeaveChannel:output_type -> quorum.v1.LeaveChannelResponse
+	18, // 34: quorum.v1.ChatService.ListChannels:output_type -> quorum.v1.ListChannelsResponse
+	20, // 35: quorum.v1.ChatService.GetChannelHistory:output_type -> quorum.v1.GetChannelHistoryResponse
+	22, // 36: quorum.v1.ChatService.SearchChannelMessages:output_type -> quorum.v1.SearchChannelMessagesResponse
+	24, // 37: quorum.v1.ChatService.ListUsers:output_type -> quorum.v1.ListUsersResponse
+	27, // 38: quorum.v1.ChatService.SendDirect:output_type -> quorum.v1.SendDirectResponse
+	30, // 39: quorum.v1.ChatService.RegisterCommands:output_type -> quorum.v1.RegisterCommandsResponse
+	29, // [29:40] is the sub-list for method output_type
+	18, // [18:29] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_quorum_v1_chat_proto_init() }
@@ -1830,7 +1947,7 @@ func file_quorum_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_quorum_v1_chat_proto_rawDesc), len(file_quorum_v1_chat_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   27,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

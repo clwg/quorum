@@ -23,6 +23,9 @@ const (
 	colSelfMsg = lipgloss.Color("147") // the local user's own messages
 )
 
+// senderCol is the fixed width of the sender column in message and search rows.
+const senderCol = 9
+
 var (
 	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
 	dimStyle   = lipgloss.NewStyle().Foreground(colDim)
@@ -53,6 +56,9 @@ var (
 	// Scrollback message styling.
 	systemMsgStyle = lipgloss.NewStyle().Foreground(colDim).Italic(true)
 	selfMsgStyle   = lipgloss.NewStyle().Foreground(colSelfMsg).Bold(true)
+
+	// searchHitStyle highlights the matched query text within a search result.
+	searchHitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colUnread).Bold(true)
 )
 
 // senderPalette gives each participant a stable colour, hashed from their name,
@@ -77,7 +83,32 @@ func (m *Model) View() string {
 	if m.pw != nil {
 		return m.passwordView()
 	}
+	if m.search != nil {
+		return m.searchView()
+	}
 	return m.mainView()
+}
+
+// searchView draws the /search results overlay: a centred, bordered card with
+// the query and match count, the scrollable results viewport, and a key hint.
+// It replaces the chat view while open (like the login and /passwd screens) so
+// the results read as a deliberate, dismissable view.
+func (m *Model) searchView() string {
+	matches := "matches"
+	if m.search.count == 1 {
+		matches = "match"
+	}
+	title := titleStyle.Render(fmt.Sprintf("Search: %q", m.search.query)) +
+		countStyle.Render(fmt.Sprintf("  (%d %s)", m.search.count, matches))
+	footer := dimStyle.Render("↑/↓ scroll · Esc close")
+	body := lipgloss.JoinVertical(lipgloss.Left, title, "", m.search.vp.View(), "", footer)
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).
+		Padding(1, 2).Render(body)
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	}
+	return box
 }
 
 // passwordView draws the /passwd modal: a centred, bordered card with the three
@@ -338,7 +369,6 @@ func renderMessage(msg message, w int) string {
 		return dimStyle.Width(w).Render(msg.body)
 	}
 
-	const senderCol = 9
 	name := truncate(msg.sender, senderCol)
 	nameStyle := lipgloss.NewStyle().Foreground(senderColor(msg.sender)).Bold(true)
 	if msg.own {
@@ -363,6 +393,57 @@ func renderMessage(msg message, w int) string {
 			b.WriteString(indent)
 		}
 		b.WriteString(ln)
+	}
+	return b.String()
+}
+
+// renderSearchResult formats one /search match: a dim date+time, a colour-coded
+// sender column, and the body with the matched query text highlighted, wrapped
+// to width w with a hanging indent like renderMessage's chat lines.
+func renderSearchResult(msg message, w int, query string) string {
+	name := truncate(msg.sender, senderCol)
+	nameStyle := lipgloss.NewStyle().Foreground(senderColor(msg.sender)).Bold(true)
+	if msg.own {
+		nameStyle = selfMsgStyle
+	}
+	gutter := dimStyle.Render(msg.ts) + " " + nameStyle.Render(pad(name, senderCol)) + "  "
+	gutterW := len(msg.ts) + 1 + senderCol + 2
+	bodyW := max(8, w-gutterW)
+
+	wrapped := strings.Split(lipgloss.NewStyle().Width(bodyW).Render(highlightLike(msg.body, query)), "\n")
+	var b strings.Builder
+	indent := strings.Repeat(" ", gutterW)
+	for i, ln := range wrapped {
+		if i == 0 {
+			b.WriteString(gutter)
+		} else {
+			b.WriteByte('\n')
+			b.WriteString(indent)
+		}
+		b.WriteString(ln)
+	}
+	return b.String()
+}
+
+// highlightLike wraps every case-insensitive occurrence of query in body with
+// searchHitStyle, mirroring the server's LIKE substring match so the user sees
+// exactly what matched. Matching is on bytes, which is exact for ASCII queries.
+func highlightLike(body, query string) string {
+	if query == "" {
+		return body
+	}
+	lowerBody, lowerQuery := strings.ToLower(body), strings.ToLower(query)
+	var b strings.Builder
+	for {
+		i := strings.Index(lowerBody, lowerQuery)
+		if i < 0 {
+			b.WriteString(body)
+			break
+		}
+		b.WriteString(body[:i])
+		b.WriteString(searchHitStyle.Render(body[i : i+len(lowerQuery)]))
+		body = body[i+len(lowerQuery):]
+		lowerBody = lowerBody[i+len(lowerQuery):]
 	}
 	return b.String()
 }

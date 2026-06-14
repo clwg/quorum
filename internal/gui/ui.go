@@ -22,6 +22,10 @@ const loginFormWidth = 420
 // label-hugging width so the entry fields are comfortable to type in.
 const formDialogWidth = 480
 
+// searchDialogHeight is the fixed height of the /search results dialog: tall
+// enough to show several matches at once while the inner list scrolls the rest.
+const searchDialogHeight = 460
+
 // buildLogin constructs the connection/login screen. Dialing and login run off
 // the UI goroutine; on success the window swaps to the chat UI.
 func (a *App) buildLogin() fyne.CanvasObject {
@@ -438,6 +442,7 @@ func (a *App) showHelp() {
 		{"/join <name>", "join an existing channel"},
 		{"/leave", "leave the current channel"},
 		{"/dm <user>", "open an end-to-end-encrypted direct message"},
+		{"/search <query>", "search this channel's history"},
 		{"/passwd", "change your password (opens a private form)"},
 		{"/commands", "list commands offered by bots"},
 		{"/help", "show this help"},
@@ -458,6 +463,73 @@ func (a *App) showHelp() {
 	d := dialog.NewCustom("Quorum commands", "Close", content, a.win)
 	d.Resize(fyne.NewSize(formDialogWidth, d.MinSize().Height))
 	d.Show()
+}
+
+// showSearchResults presents channel-search matches in a scrollable dialog.
+// Each row shows the match's date, sender, and body with the query highlighted.
+func (a *App) showSearchResults(query string, results []message) {
+	rows := make([]fyne.CanvasObject, len(results))
+	for i, m := range results {
+		rows[i] = searchResultRow(m, query)
+	}
+	list := container.NewVScroll(container.NewVBox(rows...))
+	matches := "matches"
+	if len(results) == 1 {
+		matches = "match"
+	}
+	title := fmt.Sprintf("Search: %q  (%d %s)", query, len(results), matches)
+	d := dialog.NewCustom(title, "Close", list, a.win)
+	d.Resize(fyne.NewSize(formDialogWidth, searchDialogHeight))
+	d.Show()
+}
+
+// searchResultRow renders one search match as a word-wrapped rich-text row: a
+// dim date, a bold sender, and the body with occurrences of query highlighted.
+func searchResultRow(m message, query string) fyne.CanvasObject {
+	rt := widget.NewRichText()
+	rt.Wrapping = fyne.TextWrapWord
+	senderColor := theme.ColorNameForeground
+	if m.own {
+		senderColor = theme.ColorNamePrimary
+	}
+	segs := []widget.RichTextSegment{
+		&widget.TextSegment{Text: m.ts + "  ", Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameDisabled}},
+		&widget.TextSegment{Text: m.sender + "  ", Style: widget.RichTextStyle{Inline: true, TextStyle: fyne.TextStyle{Bold: true}, ColorName: senderColor}},
+	}
+	rt.Segments = append(segs, highlightSegments(m.body, query)...)
+	rt.Refresh()
+	return rt
+}
+
+// highlightSegments splits body into inline rich-text segments, bolding every
+// case-insensitive occurrence of query so the match stands out, mirroring the
+// server's LIKE substring match. Matching is on bytes, exact for ASCII queries.
+func highlightSegments(body, query string) []widget.RichTextSegment {
+	plain := func(s string) widget.RichTextSegment {
+		return &widget.TextSegment{Text: s, Style: widget.RichTextStyle{Inline: true}}
+	}
+	if query == "" {
+		return []widget.RichTextSegment{plain(body)}
+	}
+	var segs []widget.RichTextSegment
+	lowerBody, lowerQuery := strings.ToLower(body), strings.ToLower(query)
+	for {
+		i := strings.Index(lowerBody, lowerQuery)
+		if i < 0 {
+			segs = append(segs, plain(body))
+			break
+		}
+		if i > 0 {
+			segs = append(segs, plain(body[:i]))
+		}
+		segs = append(segs, &widget.TextSegment{
+			Text:  body[i : i+len(lowerQuery)],
+			Style: widget.RichTextStyle{Inline: true, TextStyle: fyne.TextStyle{Bold: true}, ColorName: theme.ColorNamePrimary},
+		})
+		body = body[i+len(lowerQuery):]
+		lowerBody = lowerBody[i+len(lowerQuery):]
+	}
+	return segs
 }
 
 // messageRow renders one scrollback entry as a word-wrapped rich-text row.

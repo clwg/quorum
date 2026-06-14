@@ -19,16 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Subscribe_FullMethodName          = "/quorum.v1.ChatService/Subscribe"
-	ChatService_SendChannelMessage_FullMethodName = "/quorum.v1.ChatService/SendChannelMessage"
-	ChatService_CreateChannel_FullMethodName      = "/quorum.v1.ChatService/CreateChannel"
-	ChatService_JoinChannel_FullMethodName        = "/quorum.v1.ChatService/JoinChannel"
-	ChatService_LeaveChannel_FullMethodName       = "/quorum.v1.ChatService/LeaveChannel"
-	ChatService_ListChannels_FullMethodName       = "/quorum.v1.ChatService/ListChannels"
-	ChatService_GetChannelHistory_FullMethodName  = "/quorum.v1.ChatService/GetChannelHistory"
-	ChatService_ListUsers_FullMethodName          = "/quorum.v1.ChatService/ListUsers"
-	ChatService_SendDirect_FullMethodName         = "/quorum.v1.ChatService/SendDirect"
-	ChatService_RegisterCommands_FullMethodName   = "/quorum.v1.ChatService/RegisterCommands"
+	ChatService_Subscribe_FullMethodName             = "/quorum.v1.ChatService/Subscribe"
+	ChatService_SendChannelMessage_FullMethodName    = "/quorum.v1.ChatService/SendChannelMessage"
+	ChatService_CreateChannel_FullMethodName         = "/quorum.v1.ChatService/CreateChannel"
+	ChatService_JoinChannel_FullMethodName           = "/quorum.v1.ChatService/JoinChannel"
+	ChatService_LeaveChannel_FullMethodName          = "/quorum.v1.ChatService/LeaveChannel"
+	ChatService_ListChannels_FullMethodName          = "/quorum.v1.ChatService/ListChannels"
+	ChatService_GetChannelHistory_FullMethodName     = "/quorum.v1.ChatService/GetChannelHistory"
+	ChatService_SearchChannelMessages_FullMethodName = "/quorum.v1.ChatService/SearchChannelMessages"
+	ChatService_ListUsers_FullMethodName             = "/quorum.v1.ChatService/ListUsers"
+	ChatService_SendDirect_FullMethodName            = "/quorum.v1.ChatService/SendDirect"
+	ChatService_RegisterCommands_FullMethodName      = "/quorum.v1.ChatService/RegisterCommands"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -47,6 +48,7 @@ type ChatServiceClient interface {
 	LeaveChannel(ctx context.Context, in *LeaveChannelRequest, opts ...grpc.CallOption) (*LeaveChannelResponse, error)
 	ListChannels(ctx context.Context, in *ListChannelsRequest, opts ...grpc.CallOption) (*ListChannelsResponse, error)
 	GetChannelHistory(ctx context.Context, in *GetChannelHistoryRequest, opts ...grpc.CallOption) (*GetChannelHistoryResponse, error)
+	SearchChannelMessages(ctx context.Context, in *SearchChannelMessagesRequest, opts ...grpc.CallOption) (*SearchChannelMessagesResponse, error)
 	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
 	// SendDirect relays an opaque E2EE envelope to a connected recipient.
 	// The server never persists these and cannot read the payload.
@@ -143,6 +145,16 @@ func (c *chatServiceClient) GetChannelHistory(ctx context.Context, in *GetChanne
 	return out, nil
 }
 
+func (c *chatServiceClient) SearchChannelMessages(ctx context.Context, in *SearchChannelMessagesRequest, opts ...grpc.CallOption) (*SearchChannelMessagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchChannelMessagesResponse)
+	err := c.cc.Invoke(ctx, ChatService_SearchChannelMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListUsersResponse)
@@ -189,6 +201,7 @@ type ChatServiceServer interface {
 	LeaveChannel(context.Context, *LeaveChannelRequest) (*LeaveChannelResponse, error)
 	ListChannels(context.Context, *ListChannelsRequest) (*ListChannelsResponse, error)
 	GetChannelHistory(context.Context, *GetChannelHistoryRequest) (*GetChannelHistoryResponse, error)
+	SearchChannelMessages(context.Context, *SearchChannelMessagesRequest) (*SearchChannelMessagesResponse, error)
 	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
 	// SendDirect relays an opaque E2EE envelope to a connected recipient.
 	// The server never persists these and cannot read the payload.
@@ -226,6 +239,9 @@ func (UnimplementedChatServiceServer) ListChannels(context.Context, *ListChannel
 }
 func (UnimplementedChatServiceServer) GetChannelHistory(context.Context, *GetChannelHistoryRequest) (*GetChannelHistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetChannelHistory not implemented")
+}
+func (UnimplementedChatServiceServer) SearchChannelMessages(context.Context, *SearchChannelMessagesRequest) (*SearchChannelMessagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchChannelMessages not implemented")
 }
 func (UnimplementedChatServiceServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListUsers not implemented")
@@ -376,6 +392,24 @@ func _ChatService_GetChannelHistory_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_SearchChannelMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchChannelMessagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SearchChannelMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SearchChannelMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SearchChannelMessages(ctx, req.(*SearchChannelMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListUsersRequest)
 	if err := dec(in); err != nil {
@@ -460,6 +494,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetChannelHistory",
 			Handler:    _ChatService_GetChannelHistory_Handler,
+		},
+		{
+			MethodName: "SearchChannelMessages",
+			Handler:    _ChatService_SearchChannelMessages_Handler,
 		},
 		{
 			MethodName: "ListUsers",

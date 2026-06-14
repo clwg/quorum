@@ -19,6 +19,7 @@ service ChatService {
   rpc LeaveChannel(LeaveChannelRequest) returns (LeaveChannelResponse);
   rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
   rpc GetChannelHistory(GetChannelHistoryRequest) returns (GetChannelHistoryResponse);
+  rpc SearchChannelMessages(SearchChannelMessagesRequest) returns (SearchChannelMessagesResponse);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
 
   // SendDirect relays an opaque E2EE envelope to a connected recipient.
@@ -140,6 +141,15 @@ message GetChannelHistoryRequest {
 }
 message GetChannelHistoryResponse {
   repeated ChannelMessage messages = 1; // ascending by id
+}
+
+message SearchChannelMessagesRequest {
+  string channel_id = 1;
+  string query = 2;
+  int32 limit = 3; // server caps this
+}
+message SearchChannelMessagesResponse {
+  repeated ChannelMessage messages = 1; // ascending by id (most recent matches)
 }
 
 message ListUsersRequest {}

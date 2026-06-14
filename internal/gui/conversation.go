@@ -70,6 +70,15 @@ func fmtTime(cm *quorumv1.ChannelMessage) string {
 	return cm.GetSentAt().AsTime().Local().Format("15:04")
 }
 
+// fmtSearchDate formats a search match with its date, since matches can be days
+// or weeks old where a bare clock time would be ambiguous.
+func fmtSearchDate(cm *quorumv1.ChannelMessage) string {
+	if cm.GetSentAt() == nil {
+		return time.Now().Format("Jan 02 15:04")
+	}
+	return cm.GetSentAt().AsTime().Local().Format("Jan 02 15:04")
+}
+
 // grpcErrText strips the gRPC "desc = " prefix for display.
 func grpcErrText(err error) string {
 	if err == nil {

@@ -1,6 +1,9 @@
 package store
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type Channel struct {
 	ID        string
@@ -155,4 +158,43 @@ func (s *Store) ChannelHistory(ctx context.Context, channelID string, beforeID i
 		msgs[i], msgs[j] = msgs[j], msgs[i]
 	}
 	return msgs, nil
+}
+
+// SearchChannelMessages returns up to limit messages in channelID whose body
+// contains query as a case-insensitive substring, the most recent matches by
+// id, returned in ascending id order (matching ChannelHistory's ordering).
+func (s *Store) SearchChannelMessages(ctx context.Context, channelID, query string, limit int) ([]*Message, error) {
+	pattern := "%" + escapeLike(query) + "%"
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT m.id, m.channel_id, m.sender_id, u.username, m.body, m.created_at
+		 FROM messages m JOIN users u ON u.id = m.sender_id
+		 WHERE m.channel_id = ? AND m.body LIKE ? ESCAPE '\'
+		 ORDER BY m.id DESC LIMIT ?`, channelID, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var msgs []*Message
+	for rows.Next() {
+		var m Message
+		if err := rows.Scan(&m.ID, &m.ChannelID, &m.SenderID, &m.SenderName, &m.Body, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, &m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// reverse to ascending
+	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
+	return msgs, nil
+}
+
+// escapeLike escapes the LIKE wildcards and the escape character itself so a
+// user's search text is matched literally (used with ESCAPE '\').
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(s)
 }

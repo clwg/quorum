@@ -53,6 +53,13 @@ type actionErrMsg struct {
 }
 type joinedMsg struct{ ch *quorumv1.Channel }
 
+// searchMsg carries the result of a SearchChannelMessages RPC back to Update.
+type searchMsg struct {
+	query    string
+	messages []*quorumv1.ChannelMessage
+	err      error
+}
+
 // pwResultMsg carries the outcome of a ChangePassword RPC back to the modal.
 type pwResultMsg struct{ err error }
 
@@ -155,6 +162,19 @@ type Model struct {
 	// form captures input out-of-band so a password is never typed into the
 	// message line or echoed into the scrollback.
 	pw *pwForm
+
+	// search is the channel-search results overlay; nil unless /search results
+	// are being shown. It owns its own scrollable viewport so results read as a
+	// deliberate, dismissable view without disturbing the live conversation.
+	search *searchState
+}
+
+// searchState holds the open /search results overlay: the query, the match
+// count (for the title), and a scrollable viewport of rendered results.
+type searchState struct {
+	query string
+	count int
+	vp    viewport.Model
 }
 
 // pwForm is the modal /passwd form: current, new, and confirm fields.
@@ -369,6 +389,17 @@ func (m *Model) fetchHistory(conv *conversation) tea.Cmd {
 	}
 }
 
+// searchChannel runs a server-side search of channelID for query, delivering
+// the matches back as a searchMsg. The server caps and orders the results.
+func (m *Model) searchChannel(channelID, query string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		msgs, err := m.client.SearchChannelMessages(ctx, channelID, query, 0)
+		return searchMsg{query: query, messages: msgs, err: err}
+	}
+}
+
 // fetchOlderHistory loads the page of messages immediately before the oldest one
 // currently held, for scroll-up pagination.
 func (m *Model) fetchOlderHistory(conv *conversation) tea.Cmd {
@@ -544,6 +575,15 @@ func fmtTime(ts *quorumv1.ChannelMessage) string {
 		return time.Now().Format("15:04")
 	}
 	return ts.GetSentAt().AsTime().Local().Format("15:04")
+}
+
+// fmtSearchDate formats a search match with its date, since matches can be days
+// or weeks old where a bare clock time would be ambiguous.
+func fmtSearchDate(ts *quorumv1.ChannelMessage) string {
+	if ts.GetSentAt() == nil {
+		return time.Now().Format("Jan 02 15:04")
+	}
+	return ts.GetSentAt().AsTime().Local().Format("Jan 02 15:04")
 }
 
 func grpcErrText(err error) string {

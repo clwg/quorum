@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -144,6 +145,88 @@ func TestUnknownUserPresenceRefreshesRoster(t *testing.T) {
 	}
 	if _, cmd := m.handleEvent(client.PresenceEvent{Presence: &quorumv1.PresenceEvent{UserId: "ghost", Online: false}}); cmd != nil {
 		t.Fatalf("unknown user going offline should issue no command")
+	}
+}
+
+// TestSearchCommandValidation covers the local guards before any RPC: /search
+// only works in a channel and needs a non-empty query.
+func TestSearchCommandValidation(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	// No active conversation: rejected with a note, no overlay.
+	m.submit("/search hello")
+	if m.search != nil {
+		t.Fatal("/search with no channel should not open the overlay")
+	}
+	if m.statusNote == "" {
+		t.Fatal("/search with no channel should set a status note")
+	}
+
+	// In a DM: same rejection.
+	dm := m.ensureConv(dmKey("p"), "p", "@peer", true)
+	m.setActive(dm.key)
+	m.submit("/search hello")
+	if m.search != nil {
+		t.Fatal("/search in a DM should not open the overlay")
+	}
+
+	// In a channel, a blank query is rejected before any search command runs.
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	m.setActive(conv.key)
+	if _, cmd := m.submit("/search    "); cmd != nil {
+		t.Fatal("blank /search query should not start a search")
+	}
+	if m.statusNote != "usage: /search <query>" {
+		t.Fatalf("blank query status = %q", m.statusNote)
+	}
+}
+
+// TestSearchOverlay covers the results overlay: openSearch shows it with the
+// match count, Esc closes it, and unrelated messages are not consumed so
+// background state keeps updating behind it.
+func TestSearchOverlay(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	m.openSearch("m2", makeHistory(1, 3))
+	if m.search == nil {
+		t.Fatal("openSearch should open the overlay")
+	}
+	if m.search.count != 3 {
+		t.Fatalf("match count = %d, want 3", m.search.count)
+	}
+
+	if _, _, handled := m.updateSearch(joinedMsg{}); handled {
+		t.Fatal("overlay should not consume unrelated messages")
+	}
+	if _, _, handled := m.updateSearch(tea.KeyMsg{Type: tea.KeyEsc}); !handled {
+		t.Fatal("esc should be handled by the overlay")
+	}
+	if m.search != nil {
+		t.Fatal("esc should close the overlay")
+	}
+}
+
+// TestHighlightLike checks the match highlighter preserves the body's text
+// exactly (correct byte slicing) across zero, one, and several case-insensitive
+// matches. Styling is stripped without a terminal, so equality is on content.
+func TestHighlightLike(t *testing.T) {
+	cases := []struct{ body, query string }{
+		{"hello world", ""},                  // no query: unchanged
+		{"lunch at noon", "deploy"},          // no match: unchanged
+		{"Deploy a deploy DEPLOY", "deploy"}, // several case-insensitive matches
+		{"deploy", "deploy"},                 // whole body is the match
+	}
+	for _, tc := range cases {
+		if got := highlightLike(tc.body, tc.query); got != tc.body {
+			t.Errorf("highlightLike(%q, %q) text = %q, want %q", tc.body, tc.query, got, tc.body)
+		}
+	}
+	// Ensure we are exercising the highlighting path, not just the empty-query
+	// shortcut: a real match still round-trips to the same text.
+	if !strings.Contains(highlightLike("the deploy", "deploy"), "deploy") {
+		t.Fatal("highlight should retain the matched text")
 	}
 }
 

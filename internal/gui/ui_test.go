@@ -2,13 +2,58 @@ package gui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 
 	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 )
+
+// TestHighlightSegments checks the search highlighter splits a body into
+// segments that preserve the original text and bold every case-insensitive
+// occurrence of the query.
+func TestHighlightSegments(t *testing.T) {
+	text := func(segs []widget.RichTextSegment) string {
+		var b strings.Builder
+		for _, s := range segs {
+			b.WriteString(s.(*widget.TextSegment).Text)
+		}
+		return b.String()
+	}
+	bold := func(segs []widget.RichTextSegment) int {
+		n := 0
+		for _, s := range segs {
+			if s.(*widget.TextSegment).Style.TextStyle.Bold {
+				n++
+			}
+		}
+		return n
+	}
+
+	// Empty query: a single plain segment holding the whole body.
+	segs := highlightSegments("hello world", "")
+	if len(segs) != 1 || text(segs) != "hello world" || bold(segs) != 0 {
+		t.Fatalf("empty query: %d segs, text %q, bold %d", len(segs), text(segs), bold(segs))
+	}
+
+	// Several case-insensitive matches: text preserved, each hit bold.
+	segs = highlightSegments("Deploy then deploy", "deploy")
+	if text(segs) != "Deploy then deploy" {
+		t.Fatalf("text not preserved: %q", text(segs))
+	}
+	if bold(segs) != 2 {
+		t.Fatalf("want 2 bold hits, got %d", bold(segs))
+	}
+
+	// No match: text preserved, nothing bold.
+	segs = highlightSegments("lunch at noon", "deploy")
+	if text(segs) != "lunch at noon" || bold(segs) != 0 {
+		t.Fatalf("no match: text %q, bold %d", text(segs), bold(segs))
+	}
+}
 
 // TestEnterChannelScrollsToBottom guards the reported regression: opening a
 // channel must land on the latest message (scrolled to the bottom), not snap

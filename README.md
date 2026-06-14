@@ -14,8 +14,9 @@ direct messages; a GUI client; a terminal client; an admin terminal UI; and a bo
 - **cmd/quorum-client** - bubbletea chat TUI. Sidebar of channels and DMs, a
   message viewport, an input line, a status bar with connection state and
   E2EE key fingerprints. Slash commands: `/create`, `/join`, `/leave`,
-  `/dm <user>`, `/passwd` (change your password), `/commands` (list bot
-  commands), `/help`, `/quit`.
+  `/dm <user>`, `/search <text>` (search the current channel's history),
+  `/passwd` (change your password), `/commands` (list bot commands), `/help`,
+  `/quit`.
 - **cmd/quorum-gui** - Fyne desktop chat client; a graphical peer of
   quorum-client driving the same `internal/client` core.
 - **cmd/quorum-admin** - bubbletea admin TUI over the role-gated AdminService:
