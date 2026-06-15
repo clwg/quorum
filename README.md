@@ -1,5 +1,7 @@
 # quorum
 
+<img src="icon/logo.png" alt="logo" width="150"/>
+
 A multi-user chat system in Go: a gRPC server with encrypted, authenticated
 sessions; group channels with persisted history; end-to-end-encrypted 1:1
 direct messages; a GUI client; a terminal client; an admin terminal UI; and a bot SDK.
