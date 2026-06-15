@@ -54,11 +54,12 @@ type App struct {
 	users     map[string]*quorumv1.User
 	connState client.ConnState
 
-	pendingJoin  string // channel name a /join is waiting on a refresh for
-	note         string // transient status-bar note
-	selecting    bool   // guards programmatic list selection from re-entering openConv
-	suppressLoad bool   // guards programmatic scrolls from triggering older-history loads
-	pumpStarted  bool
+	pendingJoin       string // channel name a /join is waiting on a refresh for
+	pendingJoinPicker bool   // a bare /join is waiting on a refresh to open the picker
+	note              string // transient status-bar note
+	selecting         bool   // guards programmatic list selection from re-entering openConv
+	suppressLoad      bool   // guards programmatic scrolls from triggering older-history loads
+	pumpStarted       bool
 
 	// main-window widgets (nil until showMain)
 	channelList *widget.List
@@ -157,9 +158,12 @@ func (a *App) ensureConv(key, id, name string, isDM bool) *conversation {
 func (a *App) rebuildOrder() {
 	var chs, dms []string
 	for key, c := range a.convs {
-		if c.isDM {
+		switch {
+		case c.isDM:
 			dms = append(dms, key)
-		} else {
+		case c.joined:
+			// Only channels the user belongs to appear in the sidebar; the rest
+			// are reachable through the /join picker, not the list.
 			chs = append(chs, key)
 		}
 	}
@@ -211,6 +215,20 @@ func (a *App) findChannelKey(name string) string {
 	return ""
 }
 
+// joinableChannels returns the conversation keys of channels the user has not
+// joined, sorted by name. These are the channels the /join picker offers, since
+// joined channels already appear in the sidebar.
+func (a *App) joinableChannels() []string {
+	var keys []string
+	for key, c := range a.convs {
+		if !c.isDM && !c.joined {
+			keys = append(keys, key)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return a.convs[keys[i]].name < a.convs[keys[j]].name })
+	return keys
+}
+
 // --- navigation ---
 
 // openConv activates a sidebar entry, joining a channel first if needed.
@@ -232,6 +250,7 @@ func (a *App) openConv(key string) {
 				}
 				c := a.ensureConv(chKey(ch.GetId()), ch.GetId(), "#"+ch.GetName(), false)
 				c.joined = true
+				a.rebuildOrder() // a newly joined channel now belongs in the sidebar
 				a.setActive(c.key)
 				if !c.historyLoaded {
 					c.historyLoaded = true
@@ -336,7 +355,11 @@ func (a *App) submit(text string) {
 			return
 		case "/join":
 			if len(fields) < 2 {
-				a.setStatus("usage: /join <name>")
+				// A bare /join opens the picker; refresh first so the list of
+				// joinable channels is current when it appears (see applyChannels).
+				a.pendingJoinPicker = true
+				a.setStatus("loading channels…")
+				a.fetchChannels()
 				return
 			}
 			target := strings.TrimPrefix(fields[1], "#")
@@ -345,7 +368,8 @@ func (a *App) submit(text string) {
 				return
 			}
 			// The local list may be stale: refresh and finish the join when it
-			// arrives (see applyChannels).
+			// arrives, falling back to the picker if there's still no such
+			// channel (see applyChannels).
 			a.pendingJoin = target
 			a.setStatus("looking for #" + target + "…")
 			a.fetchChannels()
@@ -424,6 +448,7 @@ func (a *App) createChannel(name string) {
 			}
 			conv := a.ensureConv(chKey(ch.GetId()), ch.GetId(), "#"+ch.GetName(), false)
 			conv.joined = true
+			a.rebuildOrder() // a newly created channel now belongs in the sidebar
 			a.setActive(conv.key)
 			if !conv.historyLoaded {
 				conv.historyLoaded = true
@@ -486,8 +511,14 @@ func (a *App) applyChannels(chans []*quorumv1.Channel, err error) {
 		if key := a.findChannelKey(name); key != "" {
 			a.openConv(key)
 		} else {
-			a.setStatus("no such channel #" + name)
+			a.setStatus("no such channel #" + name + " — pick one to join")
+			a.showJoinPicker()
 		}
+	}
+	// Open the picker for a bare /join now that the list is current.
+	if a.pendingJoinPicker {
+		a.pendingJoinPicker = false
+		a.showJoinPicker()
 	}
 }
 

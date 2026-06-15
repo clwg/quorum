@@ -31,6 +31,13 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, cmd
 		}
 	}
+	// While the /join picker is open it owns the keyboard (Esc to dismiss,
+	// arrows to move, Enter to join); everything else still flows below.
+	if m.joinP != nil {
+		if model, cmd, handled := m.updateJoinPicker(msg); handled {
+			return model, cmd
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -61,8 +68,14 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_, cmd := m.openConv(key)
 				cmds = append(cmds, cmd)
 			} else {
-				m.statusNote = "no such channel #" + name
+				m.statusNote = "no such channel #" + name + " — pick one to join"
+				m.openJoinPicker()
 			}
+		}
+		// Open the picker for a bare /join now that the list is current.
+		if m.pendingJoinPicker {
+			m.pendingJoinPicker = false
+			m.openJoinPicker()
 		}
 		return m, tea.Batch(cmds...)
 	case usersMsg:
@@ -116,6 +129,7 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case joinedMsg:
 		conv := m.ensureConv(chKey(msg.ch.GetId()), msg.ch.GetId(), "#"+msg.ch.GetName(), false)
 		conv.joined = true
+		m.rebuildOrder() // a newly joined/created channel now belongs in the sidebar
 		m.setActive(conv.key)
 		if !conv.historyLoaded {
 			conv.historyLoaded = true
@@ -359,8 +373,11 @@ func (m *Model) submit(text string) (tea.Model, tea.Cmd) {
 			}
 		case "/join":
 			if len(fields) < 2 {
-				m.statusNote = "usage: /join <name>"
-				return m, nil
+				// A bare /join opens the picker; refresh first so the list of
+				// joinable channels is current when it appears.
+				m.pendingJoinPicker = true
+				m.statusNote = "loading channels…"
+				return m, m.fetchChannels()
 			}
 			// Accept "#general" or "general" (the '#' is optional), matched
 			// case-insensitively.
@@ -369,7 +386,8 @@ func (m *Model) submit(text string) (tea.Model, tea.Cmd) {
 				return m.openConv(key)
 			}
 			// The local list may be stale (e.g. someone just created it):
-			// refresh and finish the join once the new list arrives.
+			// refresh and finish the join once the new list arrives, falling
+			// back to the picker if there's still no such channel.
 			m.pendingJoin = target
 			m.statusNote = "looking for #" + target + "…"
 			return m, m.fetchChannels()
@@ -526,6 +544,74 @@ func (m *Model) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
+// --- /join channel picker ---
+
+// openJoinPicker shows the picker listing the channels the user can join. When
+// there are none it leaves a status note instead of opening an empty overlay.
+func (m *Model) openJoinPicker() {
+	keys := m.joinableChannels()
+	if len(keys) == 0 {
+		m.statusNote = "no other channels to join — use /create to make one"
+		return
+	}
+	m.joinP = &joinPicker{keys: keys}
+	m.input.Blur()
+}
+
+// closeJoinPicker dismisses the picker and returns focus to the message input.
+func (m *Model) closeJoinPicker() {
+	m.joinP = nil
+	m.focus = focusInput
+	m.input.Focus()
+}
+
+// joinPickerListH is the number of channel rows the picker shows at once, capped
+// to the window height and the number of joinable channels.
+func (m *Model) joinPickerListH() int {
+	return max(1, min(len(m.joinP.keys), max(3, m.height-10)))
+}
+
+// updateJoinPicker drives the open picker. It returns handled=true for the keys
+// it consumes (Esc closes; up/down or j/k move; Enter joins the selection),
+// swallowing other keys so they can't leak into the message line behind it.
+func (m *Model) updateJoinPicker(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, nil, false
+	}
+	switch key.String() {
+	case "esc":
+		m.closeJoinPicker()
+	case "up", "k":
+		if m.joinP.idx > 0 {
+			m.joinP.idx--
+			m.joinPickerEnsureVisible()
+		}
+	case "down", "j":
+		if m.joinP.idx < len(m.joinP.keys)-1 {
+			m.joinP.idx++
+			m.joinPickerEnsureVisible()
+		}
+	case "home", "g":
+		m.joinP.idx = 0
+		m.joinPickerEnsureVisible()
+	case "end", "G":
+		m.joinP.idx = len(m.joinP.keys) - 1
+		m.joinPickerEnsureVisible()
+	case "enter":
+		convKey := m.joinP.keys[m.joinP.idx]
+		m.closeJoinPicker()
+		model, cmd := m.openConv(convKey)
+		return model, cmd, true
+	}
+	return m, nil, true // swallow other keys while the picker is open
+}
+
+// joinPickerEnsureVisible keeps the selected row within the picker's window.
+func (m *Model) joinPickerEnsureVisible() {
+	m.joinP.scroll = scrollToShow(m.joinP.idx, m.joinP.scroll, m.joinPickerListH(), len(m.joinP.keys))
+}
+
 // --- password change modal ---
 
 // pwFields labels the three modal inputs, in order.
@@ -640,7 +726,7 @@ func (m *Model) submitPwForm() (tea.Model, tea.Cmd, bool) {
 var helpLines = []string{
 	"quorum commands:",
 	"  /create <name>   create a channel and open it",
-	"  /join <name>     join an existing channel",
+	"  /join [name]     join a channel (lists channels to pick if omitted)",
 	"  /leave           leave the current channel",
 	"  /dm <user>       open an end-to-end-encrypted direct message",
 	"  /search <text>   search this channel's history",

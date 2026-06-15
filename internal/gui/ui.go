@@ -183,17 +183,14 @@ func (a *App) buildMain() fyne.CanvasObject {
 	return container.NewBorder(nil, statusBar, nil, nil, split)
 }
 
-// channelRowText renders a channel's sidebar row: the name, a "(join)" hint
-// for channels not yet joined, and an unread badge.
+// channelRowText renders a channel's sidebar row: the name and an unread badge.
+// Only joined channels appear in the sidebar (others are reached via /join).
 func (a *App) channelRowText(key string) string {
 	c := a.convs[key]
 	if c == nil {
 		return ""
 	}
 	name := c.name
-	if !c.joined {
-		name += "  (join)"
-	}
 	if c.unread > 0 {
 		name = fmt.Sprintf("%s  (%d)", name, c.unread)
 	}
@@ -439,7 +436,7 @@ func (a *App) promptChangePassword() {
 func (a *App) showHelp() {
 	commands := [][2]string{
 		{"/create <name>", "create a channel and open it"},
-		{"/join <name>", "join an existing channel"},
+		{"/join [name]", "join a channel (lists channels to pick if omitted)"},
 		{"/leave", "leave the current channel"},
 		{"/dm <user>", "open an end-to-end-encrypted direct message"},
 		{"/search <query>", "search this channel's history"},
@@ -479,6 +476,40 @@ func (a *App) showSearchResults(query string, results []message) {
 	}
 	title := fmt.Sprintf("Search: %q  (%d %s)", query, len(results), matches)
 	d := dialog.NewCustom(title, "Close", list, a.win)
+	d.Resize(fyne.NewSize(formDialogWidth, searchDialogHeight))
+	d.Show()
+}
+
+// showJoinPicker presents the channels the user can join in a scrollable list
+// dialog. Selecting a row joins that channel and closes the dialog. When there
+// are no joinable channels it leaves a status note instead of an empty dialog.
+func (a *App) showJoinPicker() {
+	keys := a.joinableChannels()
+	if len(keys) == 0 {
+		a.setStatus("no other channels to join — use + or /create to make one")
+		return
+	}
+	var d dialog.Dialog
+	list := widget.NewList(
+		func() int { return len(keys) },
+		func() fyne.CanvasObject { return widget.NewLabel("") },
+		func(id widget.ListItemID, o fyne.CanvasObject) {
+			if id >= 0 && id < len(keys) {
+				if c := a.convs[keys[id]]; c != nil {
+					o.(*widget.Label).SetText(c.name)
+				}
+			}
+		},
+	)
+	list.OnSelected = func(id widget.ListItemID) {
+		if id < 0 || id >= len(keys) {
+			return
+		}
+		key := keys[id]
+		d.Hide()
+		a.openConv(key)
+	}
+	d = dialog.NewCustom("Join a channel", "Cancel", list, a.win)
 	d.Resize(fyne.NewSize(formDialogWidth, searchDialogHeight))
 	d.Show()
 }

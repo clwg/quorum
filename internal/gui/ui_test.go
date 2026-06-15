@@ -55,6 +55,26 @@ func TestHighlightSegments(t *testing.T) {
 	}
 }
 
+// TestChannelMembershipHidesNonMembers checks the sidebar lists only joined
+// channels while non-member channels stay reachable through the /join picker.
+func TestChannelMembershipHidesNonMembers(t *testing.T) {
+	a := &App{
+		convs: make(map[string]*conversation),
+		users: make(map[string]*quorumv1.User),
+	}
+	a.convs[chKey("a")] = &conversation{key: chKey("a"), id: "a", name: "#alpha", joined: true}
+	a.convs[chKey("b")] = &conversation{key: chKey("b"), id: "b", name: "#beta"}
+	a.rebuildOrder()
+
+	if len(a.chOrder) != 1 || a.chOrder[0] != chKey("a") {
+		t.Fatalf("sidebar channels = %v, want [%s]", a.chOrder, chKey("a"))
+	}
+	joinable := a.joinableChannels()
+	if len(joinable) != 1 || joinable[0] != chKey("b") {
+		t.Fatalf("joinable channels = %v, want [%s]", joinable, chKey("b"))
+	}
+}
+
 // TestEnterChannelScrollsToBottom guards the reported regression: opening a
 // channel must land on the latest message (scrolled to the bottom), not snap
 // back to the top. It drives the real Fyne widget tree on a test canvas.

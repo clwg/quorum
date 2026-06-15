@@ -151,12 +151,13 @@ type Model struct {
 	chIdx, dmIdx       int
 	chScroll, dmScroll int
 
-	activeKey   string
-	connState   client.ConnState
-	statusNote  string
-	pendingJoin string                    // channel name a /join is waiting on a refresh for
-	users       map[string]*quorumv1.User // by ID
-	pumpStarted bool
+	activeKey         string
+	connState         client.ConnState
+	statusNote        string
+	pendingJoin       string                    // channel name a /join is waiting on a refresh for
+	pendingJoinPicker bool                      // a bare /join is waiting on a refresh to open the picker
+	users             map[string]*quorumv1.User // by ID
+	pumpStarted       bool
 
 	// pw is the modal password-change form; nil unless /passwd is open. The
 	// form captures input out-of-band so a password is never typed into the
@@ -167,6 +168,18 @@ type Model struct {
 	// are being shown. It owns its own scrollable viewport so results read as a
 	// deliberate, dismissable view without disturbing the live conversation.
 	search *searchState
+
+	// joinP is the /join channel picker overlay; nil unless it is open. It lists
+	// the channels the user has not joined so one can be chosen and joined.
+	joinP *joinPicker
+}
+
+// joinPicker holds the open /join picker: the joinable channels' conversation
+// keys, the selection cursor, and the scroll offset of the first visible row.
+type joinPicker struct {
+	keys   []string
+	idx    int
+	scroll int
 }
 
 // searchState holds the open /search results overlay: the query, the match
@@ -487,9 +500,12 @@ func (m *Model) ensureConv(key, id, name string, isDM bool) *conversation {
 func (m *Model) rebuildOrder() {
 	var chs, dms []string
 	for key, c := range m.convs {
-		if c.isDM {
+		switch {
+		case c.isDM:
 			dms = append(dms, key)
-		} else {
+		case c.joined:
+			// Only channels the user belongs to appear in the sidebar; the rest
+			// are reachable through the /join picker, not the list.
 			chs = append(chs, key)
 		}
 	}
@@ -513,6 +529,20 @@ func (m *Model) active() *conversation {
 		return nil
 	}
 	return m.convs[m.activeKey]
+}
+
+// joinableChannels returns the conversation keys of channels the user has not
+// joined, sorted by name. These are the channels the /join picker offers, since
+// joined channels already appear in the sidebar.
+func (m *Model) joinableChannels() []string {
+	var keys []string
+	for key, c := range m.convs {
+		if !c.isDM && !c.joined {
+			keys = append(keys, key)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return m.convs[keys[i]].name < m.convs[keys[j]].name })
+	return keys
 }
 
 // isSelf reports whether a sender name belongs to the local user, used to give

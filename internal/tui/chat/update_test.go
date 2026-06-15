@@ -208,6 +208,99 @@ func TestSearchOverlay(t *testing.T) {
 	}
 }
 
+// TestChannelMembershipHidesNonMembers checks that processing a channel list
+// keeps only joined channels in the sidebar while non-member channels stay
+// reachable through the /join picker.
+func TestChannelMembershipHidesNonMembers(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	m.updateMain(channelsMsg{channels: []*quorumv1.Channel{
+		{Id: "a", Name: "alpha", IsMember: true},
+		{Id: "b", Name: "beta", IsMember: false},
+	}})
+
+	if len(m.chOrder) != 1 || m.chOrder[0] != chKey("a") {
+		t.Fatalf("sidebar channels = %v, want [%s]", m.chOrder, chKey("a"))
+	}
+	joinable := m.joinableChannels()
+	if len(joinable) != 1 || joinable[0] != chKey("b") {
+		t.Fatalf("joinable channels = %v, want [%s]", joinable, chKey("b"))
+	}
+}
+
+// TestJoinPickerOpensAndJoins covers the /join picker: a bare /join opens it once
+// the channel list refreshes, and Enter on a selection joins that channel.
+func TestJoinPickerOpensAndJoins(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	// A bare /join arms the picker and asks for a fresh list.
+	m.submit("/join")
+	if !m.pendingJoinPicker {
+		t.Fatal("/join should arm the picker pending a refresh")
+	}
+
+	// The refreshed list arrives with one joinable channel; the picker opens.
+	m.updateMain(channelsMsg{channels: []*quorumv1.Channel{
+		{Id: "b", Name: "beta", IsMember: false},
+	}})
+	if m.pendingJoinPicker {
+		t.Fatal("the pending flag should clear once the list arrives")
+	}
+	if m.joinP == nil || len(m.joinP.keys) != 1 || m.joinP.keys[0] != chKey("b") {
+		t.Fatalf("picker = %+v, want one entry for %s", m.joinP, chKey("b"))
+	}
+
+	// Enter joins the selected channel: the picker closes and openConv issues a
+	// join command (a command is returned for an unjoined channel).
+	_, cmd, handled := m.updateJoinPicker(tea.KeyMsg{Type: tea.KeyEnter})
+	if !handled {
+		t.Fatal("enter should be handled by the picker")
+	}
+	if m.joinP != nil {
+		t.Fatal("enter should close the picker")
+	}
+	if cmd == nil {
+		t.Fatal("enter on an unjoined channel should issue a join command")
+	}
+}
+
+// TestJoinedChannelAppearsInSidebar checks that joining (or creating) a channel
+// surfaces it in the sidebar right away, since membership flips after the
+// conversation already exists.
+func TestJoinedChannelAppearsInSidebar(t *testing.T) {
+	m := New(nil)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	// A non-member channel is hidden from the sidebar.
+	m.updateMain(channelsMsg{channels: []*quorumv1.Channel{
+		{Id: "b", Name: "beta", IsMember: false},
+	}})
+	if len(m.chOrder) != 0 {
+		t.Fatalf("a non-member channel should be hidden, chOrder = %v", m.chOrder)
+	}
+
+	// Joining it surfaces it in the sidebar immediately.
+	m.updateMain(joinedMsg{ch: &quorumv1.Channel{Id: "b", Name: "beta"}})
+	if len(m.chOrder) != 1 || m.chOrder[0] != chKey("b") {
+		t.Fatalf("after join chOrder = %v, want [%s]", m.chOrder, chKey("b"))
+	}
+}
+
+// TestJoinPickerEmpty checks that opening the picker with no joinable channels
+// leaves a status note instead of an empty overlay.
+func TestJoinPickerEmpty(t *testing.T) {
+	m := New(nil)
+	m.openJoinPicker()
+	if m.joinP != nil {
+		t.Fatal("the picker should not open when there is nothing to join")
+	}
+	if m.statusNote == "" {
+		t.Fatal("an empty picker should leave a status note")
+	}
+}
+
 // TestHighlightLike checks the match highlighter preserves the body's text
 // exactly (correct byte slicing) across zero, one, and several case-insensitive
 // matches. Styling is stripped without a terminal, so equality is on content.
@@ -317,9 +410,11 @@ func TestPasswdFormEscCloses(t *testing.T) {
 //	row 6  (blank padding)
 func sidebarFixture() *Model {
 	m := New(nil)
-	m.ensureConv(chKey("a"), "a", "#alpha", false)
-	m.ensureConv(chKey("b"), "b", "#beta", false)
+	// Channels appear in the sidebar only once joined.
+	m.ensureConv(chKey("a"), "a", "#alpha", false).joined = true
+	m.ensureConv(chKey("b"), "b", "#beta", false).joined = true
 	m.ensureConv(dmKey("c"), "c", "@carol", true)
+	m.rebuildOrder()
 	return m
 }
 

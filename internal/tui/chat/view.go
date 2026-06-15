@@ -86,7 +86,43 @@ func (m *Model) View() string {
 	if m.search != nil {
 		return m.searchView()
 	}
+	if m.joinP != nil {
+		return m.joinPickerView()
+	}
 	return m.mainView()
+}
+
+// joinPickerView draws the /join picker: a centred, bordered card listing the
+// channels the user can join, with the selection highlighted and a key hint. It
+// replaces the chat view while open (like /search and /passwd) so picking a
+// channel reads as a deliberate, dismissable action.
+func (m *Model) joinPickerView() string {
+	p := m.joinP
+	listH := m.joinPickerListH()
+	scroll := clampScroll(p.scroll, listH, len(p.keys))
+	end := min(scroll+listH, len(p.keys))
+
+	rows := make([]string, 0, listH)
+	for i := scroll; i < end; i++ {
+		name := m.convs[p.keys[i]].name
+		if i == p.idx {
+			rows = append(rows, selectBarStyle.Render("▎")+selectNameStyle.Render(" "+name))
+		} else {
+			rows = append(rows, "  "+name)
+		}
+	}
+
+	title := titleStyle.Render("Join a channel") +
+		countStyle.Render(fmt.Sprintf("  (%d)", len(p.keys)))
+	footer := dimStyle.Render("↑/↓ select · Enter join · Esc cancel")
+	body := lipgloss.JoinVertical(lipgloss.Left, title, "", strings.Join(rows, "\n"), "", footer)
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).
+		Padding(1, 2).Render(body)
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	}
+	return box
 }
 
 // searchView draws the /search results overlay: a centred, bordered card with
@@ -253,8 +289,6 @@ func (m *Model) renderRow(key string, selected, active bool) string {
 		label = selectBarStyle.Render("▎") + selectNameStyle.Render(" "+label)
 	case active:
 		label = activeBarStyle.Render("▎") + activeStyle.Render(" "+label)
-	case !conv.isDM && !conv.joined:
-		label = dimStyle.Render("  " + label)
 	default:
 		label = "  " + label
 	}
