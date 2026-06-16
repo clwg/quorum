@@ -1,5 +1,6 @@
 .ignore
 .DS_Store
+.vscode/
 bin/
 certs/
 *.db
