@@ -173,3 +173,30 @@ Note how it validates arguments and replies with a usage hint on bad input
 (`return c.Replyf("%s - usage: /roll NdS", err)`) rather than returning an
 error - returning an error would surface the generic `⚠ command failed` reply
 instead of a friendly message.
+
+## Worked example: claudebot
+
+[`examples/claudebot/main.go`](../examples/claudebot/main.go) shells out to the
+Claude CLI: `/claude <query>` runs `claude -p "<query>"` and posts the answer
+back to the channel. The host must have the `claude` CLI installed **and
+authenticated** (the bot inherits its environment - `ANTHROPIC_API_KEY` or a
+prior `claude login`).
+
+```sh
+export QUORUM_BOT_TOKEN=qbot_...
+go run ./examples/claudebot --addr localhost:8443 --ca certs/ca.pem --channel general
+# in a chat client:  /claude explain goroutines in one sentence
+```
+
+Two things it demonstrates beyond dicebot:
+
+- **Slow work is fine.** The SDK dispatches each command in its own goroutine,
+  so a handler can block on a multi-second subprocess without stalling the bot.
+  claudebot still posts a quick "🤔 asking Claude…" ack first, because the call
+  can take a while. A `--timeout` (default 2m) bounds it via
+  `exec.CommandContext`. The query is passed as a direct argument (not through a
+  shell), so it is never interpreted.
+- **Chunking long replies.** The server rejects any message over **4096 bytes**,
+  and model output routinely exceeds that, so the answer is split into
+  ≤3900-byte pieces (breaking on newlines, never mid-rune) and sent as
+  `[i/n]`-prefixed messages.

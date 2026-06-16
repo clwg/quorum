@@ -46,8 +46,8 @@ reconnect, and (for the two human clients) the E2EE session manager.
   registered in this channel.
 - **`cmd/quorum-admin`** - the admin TUI ([`internal/tui/admin`](../internal/tui/admin)),
   driving `AdminService`.
-- **`sdk/bot` + `examples/dicebot`** - bots are ordinary token-authenticated
-  clients. See [bot-sdk.md](bot-sdk.md).
+- **`sdk/bot` + `examples/{dicebot,claudebot}`** - bots are ordinary
+  token-authenticated clients. See [bot-sdk.md](bot-sdk.md).
 - **`cmd/quorum-gencert`** - dev-only CA + server cert generator.
 
 ## The three gRPC services
@@ -190,7 +190,7 @@ Tables: `users`, `sessions` (token-hash keyed, with sliding expiry),
 | [`internal/client`](../internal/client) | Shared dial/login/pump/reconnect + DM session manager. |
 | [`internal/tui/{chat,admin}`](../internal/tui) | The two bubbletea UIs. |
 | [`sdk/bot`](../sdk/bot) | Public bot SDK. |
-| [`examples/`](../examples) | Worked examples (dicebot). |
+| [`examples/`](../examples) | Worked examples (dicebot, claudebot). |
 | [`cmd/`](../cmd) | The four binaries. |
 
 ## Design choices worth knowing

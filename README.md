@@ -17,8 +17,8 @@ direct messages; a GUI client; a terminal client; an admin terminal UI; and a bo
   quorum-client driving the same `internal/client` core.
 - **cmd/quorum-admin** - bubbletea admin TUI over the role-gated AdminService:
   add/disable/delete users, reset passwords, create/rotate/delete bots.
-- **sdk/bot** - Go SDK for writing bots; **examples/dicebot** is a worked
-  example.
+- **sdk/bot** - Go SDK for writing bots; **examples/dicebot** and
+  **examples/claudebot** are worked examples.
 - **cmd/quorum-gencert** - generates a dev CA and server certificate. Not for
   production.
 
@@ -145,6 +145,10 @@ You can also pass `--addr` and `--ca` to pre-fill the connection defaults:
 export QUORUM_BOT_TOKEN=qbot_...
 go run ./examples/dicebot --ca certs/ca.pem --channel general
 # then in a client: /roll 2d6
+
+# claudebot relays to the Claude CLI (needs `claude` installed and authenticated):
+go run ./examples/claudebot --ca certs/ca.pem --channel general
+# then in a client: /claude explain goroutines in one sentence
 ```
 
 ## Docker
