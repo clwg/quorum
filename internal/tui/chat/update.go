@@ -38,6 +38,13 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, cmd
 		}
 	}
+	// In copy mode the keyboard drives the message-copy cursor; non-key messages
+	// (incoming events, resize) still flow below so state stays current.
+	if m.copyMode {
+		if model, cmd, handled := m.updateCopyMode(msg); handled {
+			return model, cmd
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -139,6 +146,13 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case actionErrMsg:
 		m.statusNote = msg.context + ": " + grpcErrText(msg.err)
 		return m, nil
+	case copyResultMsg:
+		if msg.err != nil {
+			m.statusNote = "copy failed: " + msg.err.Error()
+		} else {
+			m.statusNote = "copied message to clipboard"
+		}
+		return m, nil
 	}
 
 	if m.focus != focusInput {
@@ -151,13 +165,9 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
-	case tea.KeyCtrlS:
-		return m, m.toggleSelectMode()
-	case tea.KeyEsc:
-		// Esc leaves select mode; otherwise it falls through to the handlers below.
-		if m.selectMode {
-			return m, m.toggleSelectMode()
-		}
+	case tea.KeyCtrlY:
+		m.enterCopyMode()
+		return m, nil
 	case tea.KeyTab:
 		m.cycleFocus(1)
 		return m, nil
@@ -207,19 +217,110 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, m.scrollViewport(msg)
 }
 
-// toggleSelectMode flips terminal text-selection mode. Quorum captures the
-// mouse (to click conversations and scroll panels), which also suppresses the
-// terminal's native click-drag selection. Turning select mode on releases the
-// mouse so the terminal can select and copy scrollback text with its own
-// shortcuts; turning it off restores mouse capture. The status bar shows when
-// it is active. The selection spans whatever is on screen (timestamps and
-// senders included), since the terminal, not Quorum, draws the highlight.
-func (m *Model) toggleSelectMode() tea.Cmd {
-	m.selectMode = !m.selectMode
-	if m.selectMode {
-		return tea.DisableMouse
+// enterCopyMode starts copy mode with the latest message highlighted, so the
+// user can move the highlight and yank a message's text to the clipboard. It is
+// a no-op (with a hint) when there is nothing to copy.
+func (m *Model) enterCopyMode() {
+	conv := m.active()
+	if conv == nil || len(conv.msgs) == 0 {
+		m.statusNote = "nothing to copy yet"
+		return
 	}
-	return tea.EnableMouseCellMotion
+	m.copyMode = true
+	m.copyIdx = len(conv.msgs) - 1
+	m.input.Blur()
+	m.refreshViewport()
+}
+
+// exitCopyMode leaves copy mode and returns focus to the message input.
+func (m *Model) exitCopyMode() {
+	m.copyMode = false
+	m.focus = focusInput
+	m.input.Focus()
+	m.refreshViewport()
+}
+
+// clampCopyIdx keeps the highlight index within the active conversation's
+// scrollback (which can shrink when the 2000-entry cap trims old messages).
+func (m *Model) clampCopyIdx() {
+	conv := m.active()
+	if conv == nil || len(conv.msgs) == 0 {
+		m.copyIdx = 0
+		return
+	}
+	m.copyIdx = min(max(m.copyIdx, 0), len(conv.msgs)-1)
+}
+
+// selectedMessageBody returns the highlighted message's text, or ok=false when
+// there is no valid selection.
+func (m *Model) selectedMessageBody() (string, bool) {
+	conv := m.active()
+	if conv == nil || m.copyIdx < 0 || m.copyIdx >= len(conv.msgs) {
+		return "", false
+	}
+	return conv.msgs[m.copyIdx].body, true
+}
+
+// updateCopyMode drives copy mode. It consumes the keys it handles (up/down or
+// k/j move the highlight; Home/End or g/G jump to the ends; Enter or y copies
+// the highlighted message and exits; Esc, q, or Ctrl+Y exit), returning
+// handled=true for those, and handled=false for everything else so background
+// events keep flowing. Moving toward the top may load an older history page.
+func (m *Model) updateCopyMode(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, nil, false
+	}
+	conv := m.active()
+	n := 0
+	if conv != nil {
+		n = len(conv.msgs)
+	}
+	switch key.String() {
+	case "esc", "q", "ctrl+y":
+		m.exitCopyMode()
+	case "enter", "y":
+		body, ok := m.selectedMessageBody()
+		m.exitCopyMode()
+		if !ok {
+			return m, nil, true
+		}
+		return m, copyToClipboardCmd(body), true
+	case "up", "k":
+		if m.copyIdx > 0 {
+			m.copyIdx--
+			m.refreshViewport()
+			return m, m.maybeLoadOlderForCopy(), true
+		}
+	case "down", "j":
+		if m.copyIdx < n-1 {
+			m.copyIdx++
+			m.refreshViewport()
+		}
+	case "home", "g":
+		m.copyIdx = 0
+		m.refreshViewport()
+		return m, m.maybeLoadOlderForCopy(), true
+	case "end", "G":
+		m.copyIdx = max(0, n-1)
+		m.refreshViewport()
+	}
+	return m, nil, true // swallow other keys while copy mode is open
+}
+
+// maybeLoadOlderForCopy loads the next older history page when the highlight
+// nears the top of a channel's scrollback, mirroring maybeLoadOlder's guards but
+// keyed off the copy cursor instead of the scroll offset.
+func (m *Model) maybeLoadOlderForCopy() tea.Cmd {
+	conv := m.active()
+	if conv == nil || conv.isDM || !conv.historyLoaded || !conv.hasMore || conv.loadingOlder {
+		return nil
+	}
+	if m.copyIdx > historyScrollThreshold {
+		return nil
+	}
+	conv.loadingOlder = true
+	return m.fetchOlderHistory(conv)
 }
 
 // scrollViewport forwards a scroll input to the message viewport and, when the
@@ -764,8 +865,8 @@ var helpLines = []string{
 	"  click            open a channel or DM in the sidebar",
 	"  wheel over panel scroll the channels or DMs list",
 	"  PgUp/PgDn        scroll history (scroll up to load older messages)",
-	"  Ctrl+S           select mode: release the mouse so you can drag-select",
-	"                   and copy scrollback text (Esc or Ctrl+S to exit)",
+	"  Ctrl+Y           copy mode: up/down pick a message, Enter/y copy its",
+	"                   text, Esc/q to exit",
 	"  Ctrl+C           quit",
 }
 

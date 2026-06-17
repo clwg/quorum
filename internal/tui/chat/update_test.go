@@ -2,7 +2,6 @@ package chat
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -468,44 +467,86 @@ func TestMouseClickOpensConversation(t *testing.T) {
 	}
 }
 
-// TestSelectModeToggle checks that Ctrl+S toggles terminal selection mode,
-// releasing the mouse on the way in and re-enabling cell-motion capture on the
-// way out, and that Esc leaves select mode but is otherwise inert.
-func TestSelectModeToggle(t *testing.T) {
+// TestCopyMode covers the scrollback copy cursor: Ctrl+Y enters with the latest
+// message highlighted, up/down move the highlight (clamped at the ends and
+// tracking the right message body), Enter copies and exits, and Esc exits
+// without copying.
+func TestCopyMode(t *testing.T) {
 	m := New(&client.Client{})
 	m.loggedIn = true
-
-	cmdMsg := func(cmd tea.Cmd) tea.Msg {
-		if cmd == nil {
-			return nil
-		}
-		return cmd()
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	conv.historyLoaded = true
+	m.setActive(conv.key)
+	for i := range 5 {
+		m.push(conv, chatLine("12:00", "alice", fmt.Sprintf("message %d", i), false))
 	}
 
-	// Ctrl+S enters select mode and releases the mouse.
-	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlS})
-	if !m.selectMode {
-		t.Fatal("Ctrl+S should enter select mode")
+	// Ctrl+Y enters copy mode with the latest message highlighted.
+	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
+	if !m.copyMode {
+		t.Fatal("Ctrl+Y should enter copy mode")
 	}
-	if !reflect.DeepEqual(cmdMsg(cmd), tea.DisableMouse()) {
-		t.Fatalf("entering select mode should disable the mouse, got %T", cmdMsg(cmd))
-	}
-
-	// Esc leaves select mode and restores mouse capture.
-	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.selectMode {
-		t.Fatal("Esc should leave select mode")
-	}
-	if !reflect.DeepEqual(cmdMsg(cmd), tea.EnableMouseCellMotion()) {
-		t.Fatalf("leaving select mode should re-enable the mouse, got %T", cmdMsg(cmd))
+	if m.copyIdx != 4 {
+		t.Fatalf("copyIdx = %d, want the last message (4)", m.copyIdx)
 	}
 
-	// Esc outside select mode neither toggles it on nor issues a mouse command.
-	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.selectMode {
-		t.Fatal("Esc outside select mode must not enter it")
+	// Up moves the highlight toward older messages; the body tracks the cursor.
+	m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
+	m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
+	if m.copyIdx != 2 {
+		t.Fatalf("after two ups copyIdx = %d, want 2", m.copyIdx)
 	}
-	if cmd != nil {
-		t.Fatalf("Esc outside select mode should issue no command, got %T", cmdMsg(cmd))
+	if body, ok := m.selectedMessageBody(); !ok || body != "message 2" {
+		t.Fatalf("selected body = %q (ok=%v), want %q", body, ok, "message 2")
+	}
+
+	// Up never moves past the first message.
+	for range 10 {
+		m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
+	}
+	if m.copyIdx != 0 {
+		t.Fatalf("copyIdx should clamp to 0 at the top, got %d", m.copyIdx)
+	}
+
+	// Enter returns a copy command (not run here, to avoid shelling out) and
+	// leaves copy mode.
+	_, cmd, handled := m.updateCopyMode(tea.KeyMsg{Type: tea.KeyEnter})
+	if !handled {
+		t.Fatal("Enter should be handled by copy mode")
+	}
+	if cmd == nil {
+		t.Fatal("Enter should return a copy command")
+	}
+	if m.copyMode {
+		t.Fatal("Enter should leave copy mode")
+	}
+
+	// Re-enter, then Esc exits without issuing a command.
+	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
+	if _, cmd, _ := m.updateCopyMode(tea.KeyMsg{Type: tea.KeyEsc}); cmd != nil {
+		t.Fatal("Esc should issue no command")
+	}
+	if m.copyMode {
+		t.Fatal("Esc should leave copy mode")
+	}
+}
+
+// TestCopyModeEmptyConversation checks Ctrl+Y is a no-op with a hint when there
+// is nothing to copy, rather than entering an empty copy mode.
+func TestCopyModeEmptyConversation(t *testing.T) {
+	m := New(&client.Client{})
+	m.loggedIn = true
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	conv := m.ensureConv(chKey("c"), "c", "#general", false)
+	conv.historyLoaded = true
+	m.setActive(conv.key)
+
+	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
+	if m.copyMode {
+		t.Fatal("copy mode should not open with no messages")
+	}
+	if m.statusNote == "" {
+		t.Fatal("an empty copy attempt should leave a hint")
 	}
 }

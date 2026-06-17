@@ -26,6 +26,12 @@ const (
 // senderCol is the fixed width of the sender column in message and search rows.
 const senderCol = 9
 
+// copyPrefixW is the width of copy mode's left gutter: a selection bar (or a
+// blank) plus a trailing space, reserved on every scrollback line so the body
+// wraps to leave room for it and the highlighted message stands out without
+// the content ever growing past the pane.
+const copyPrefixW = 2
+
 var (
 	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
 	dimStyle   = lipgloss.NewStyle().Foreground(colDim)
@@ -438,6 +444,48 @@ func renderMessage(msg message, w int) string {
 	return b.String()
 }
 
+// prefixLines prepends copy mode's left gutter to every line of a rendered
+// message: a coloured selection bar on the highlighted message, blanks
+// otherwise, so the body stays aligned whichever message is selected.
+func prefixLines(s string, selected bool) string {
+	prefix := "  "
+	if selected {
+		prefix = selectBarStyle.Render("▎") + " "
+	}
+	lines := strings.Split(s, "\n")
+	for i, ln := range lines {
+		lines[i] = prefix + ln
+	}
+	return strings.Join(lines, "\n")
+}
+
+// scrollToCopyIdx nudges the viewport so the highlighted message is fully
+// visible, scrolling just enough to bring it into view from either edge. Line
+// offsets are summed from the same renderMessage output the viewport shows in
+// copy mode (two columns narrower for the gutter), so the math matches the draw.
+func (m *Model) scrollToCopyIdx() {
+	conv := m.active()
+	if conv == nil {
+		return
+	}
+	w := m.contentWidth() - copyPrefixW
+	start, height := 0, 1
+	for i, msg := range conv.msgs {
+		h := lipgloss.Height(renderMessage(msg, w))
+		if i == m.copyIdx {
+			height = h
+			break
+		}
+		start += h
+	}
+	switch top, view := m.vp.YOffset, m.vp.Height; {
+	case start < top:
+		m.vp.SetYOffset(start)
+	case start+height > top+view:
+		m.vp.SetYOffset(start + height - view)
+	}
+}
+
 // renderSearchResult formats one /search match: a dim date+time, a colour-coded
 // sender column, and the body with the matched query text highlighted, wrapped
 // to width w with a hanging indent like renderMessage's chat lines.
@@ -509,12 +557,12 @@ func (m *Model) statusBar() string {
 	}
 
 	inner := w - 2 // one background-filled column of padding on each side
-	// In select mode a standout indicator replaces the transient note, reminding
-	// the user the mouse is released for terminal text selection. Both are dropped
-	// when too wide to sit beside the right-hand cluster without crowding it.
+	// In copy mode a standout indicator replaces the transient note, showing how
+	// to pick and yank a message. Both are dropped when too wide to sit beside the
+	// right-hand cluster without crowding it.
 	left := bg.Render(m.statusNote)
-	if m.selectMode {
-		left = bg.Foreground(colSelect).Bold(true).Render("● SELECT — drag to copy · Esc exits")
+	if m.copyMode {
+		left = bg.Foreground(colSelect).Bold(true).Render("COPY MODE   up/down pick   Enter copy   Esc exit")
 	}
 	if lipgloss.Width(left) > inner-lipgloss.Width(right)-1 {
 		left = bg.Render("")
