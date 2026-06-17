@@ -597,13 +597,13 @@ func (m *Model) renderConv(conv *conversation) string {
 }
 
 // viewportContent is the rendered scrollback with any active text selection
-// painted over it.
+// painted over it (body content only - the timestamp+sender gutter is excluded).
 func (m *Model) viewportContent(conv *conversation) string {
-	content := m.renderConv(conv)
+	lines, bodyCols := m.renderLines(conv)
 	if m.sel != nil {
-		content = applySelectionHighlight(content, *m.sel)
+		applySelectionHighlight(lines, bodyCols, *m.sel)
 	}
-	return content
+	return strings.Join(lines, "\n")
 }
 
 func (m *Model) refreshViewport() {

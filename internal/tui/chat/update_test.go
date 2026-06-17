@@ -533,6 +533,38 @@ func TestMouseSelectionCopiesSpan(t *testing.T) {
 	}
 }
 
+// TestMouseSelectionExcludesGutter checks the selection copies message content
+// only: a drag that starts in the timestamp+sender gutter (screen column 28 is
+// content column 0) still yields just the body, never the sender or time.
+func TestMouseSelectionExcludesGutter(t *testing.T) {
+	m := selectionFixture(t)
+
+	// Press on the timestamp (content column 0) and drag through the body.
+	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	if got := m.selectedText(); got != "HELLOWORLD" {
+		t.Fatalf("selected text = %q, want just the body %q (gutter excluded)", got, "HELLOWORLD")
+	}
+}
+
+// TestMouseSelectionWithinGutterCopiesNothing checks that dragging entirely
+// across the gutter (the username/timestamp) selects no content.
+func TestMouseSelectionWithinGutterCopiesNothing(t *testing.T) {
+	m := selectionFixture(t)
+
+	// Drag from content column 0 to column ~10, all inside the 17-wide gutter.
+	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, contentLeftCol+10, 1))
+	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, contentLeftCol+10, 1))
+	if got := m.selectedText(); got != "" {
+		t.Fatalf("a gutter-only drag should select nothing, got %q", got)
+	}
+	if cmd != nil {
+		t.Fatal("a gutter-only drag should copy nothing")
+	}
+}
+
 // TestMouseSelectionReleaseOverSidebar guards a drag that ends outside the
 // message pane: releasing over the sidebar must still finish the selection
 // rather than stranding the drag.

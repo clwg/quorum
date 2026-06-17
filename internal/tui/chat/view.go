@@ -395,6 +395,14 @@ func (m *Model) welcomeView() string {
 	return lipgloss.Place(m.contentWidth(), m.contentHeight(), lipgloss.Center, lipgloss.Center, block)
 }
 
+// gutterWidth is the visible width of a chat line's timestamp+sender gutter:
+// the content column where the body begins, and the hanging-indent width for the
+// message's wrapped lines. Body-only text selection uses it to exclude the
+// gutter. It must match the gutter built in renderMessage/renderSearchResult.
+func gutterWidth(msg message) int {
+	return len(msg.ts) + 1 + senderCol + 2
+}
+
 // renderMessage turns one scrollback entry into display lines, wrapped to the
 // content width. Chat lines get a dim timestamp, a colour-coded sender column,
 // and a hanging indent so wrapped bodies line up under the first word.
@@ -416,7 +424,7 @@ func renderMessage(msg message, w int) string {
 		nameStyle = selfMsgStyle
 	}
 	gutter := dimStyle.Render(msg.ts) + " " + nameStyle.Render(pad(name, senderCol)) + "  "
-	gutterW := len(msg.ts) + 1 + senderCol + 2
+	gutterW := gutterWidth(msg)
 	bodyW := max(8, w-gutterW)
 
 	bodyStyle := lipgloss.NewStyle().Width(bodyW)
@@ -448,7 +456,7 @@ func renderSearchResult(msg message, w int, query string) string {
 		nameStyle = selfMsgStyle
 	}
 	gutter := dimStyle.Render(msg.ts) + " " + nameStyle.Render(pad(name, senderCol)) + "  "
-	gutterW := len(msg.ts) + 1 + senderCol + 2
+	gutterW := gutterWidth(msg)
 	bodyW := max(8, w-gutterW)
 
 	wrapped := strings.Split(lipgloss.NewStyle().Width(bodyW).Render(highlightLike(msg.body, query)), "\n")

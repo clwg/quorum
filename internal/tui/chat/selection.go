@@ -130,13 +130,14 @@ func (m *Model) cellAtClamped(x, y int) (row, col int) {
 // selectedText returns the plain text covered by the current selection: each
 // touched content row sliced to the selected columns (first row from its start
 // column, last row to its end column, whole rows between), joined by newlines
-// with trailing pad-spaces trimmed.
+// with trailing pad-spaces trimmed. The selection is clamped to each row's body
+// column, so the timestamp+sender gutter is never copied - only message content.
 func (m *Model) selectedText() string {
 	conv := m.active()
 	if conv == nil || m.sel == nil {
 		return ""
 	}
-	lines := strings.Split(m.renderConv(conv), "\n")
+	lines, bodyCols := m.renderLines(conv)
 	r1, c1, r2, c2 := m.sel.normalized()
 	var out []string
 	for row := max(r1, 0); row <= r2 && row < len(lines); row++ {
@@ -148,43 +149,70 @@ func (m *Model) selectedText() string {
 		if row == r2 {
 			end = c2
 		}
+		if start < bodyCols[row] {
+			start = bodyCols[row]
+		}
+		if start >= end {
+			continue // selection lies entirely within this row's gutter
+		}
 		out = append(out, strings.TrimRight(cutCols(plain, start, end), " "))
 	}
 	return strings.Join(out, "\n")
 }
 
-// applySelectionHighlight overlays sel on the rendered content. Lines the span
-// touches are flattened to plain text with the selected cells painted in
-// selHighlightStyle; untouched lines keep their styling. The span runs in
-// reading order: the first row from its start column to the line end, whole rows
-// between, and the last row up to its end column.
-func applySelectionHighlight(content string, sel selection) string {
+// applySelectionHighlight overlays sel on the rendered content lines in place.
+// Each touched row is painted from its selected start column - clamped to the
+// row's body column so the gutter is excluded - to its end; the gutter and
+// unselected text keep their styling. The span runs in reading order: the first
+// row from its start column to the line end, whole rows between, and the last
+// row up to its end column.
+func applySelectionHighlight(lines []string, bodyCols []int, sel selection) {
 	r1, c1, r2, c2 := sel.normalized()
-	lines := strings.Split(content, "\n")
 	for row := max(r1, 0); row <= r2 && row < len(lines); row++ {
-		plain := ansi.Strip(lines[row])
-		start, end := 0, ansi.StringWidth(plain)
+		start, end := 0, ansi.StringWidth(lines[row])
 		if row == r1 {
 			start = c1
 		}
 		if row == r2 {
 			end = c2
 		}
-		lines[row] = highlightSpan(plain, start, end)
+		if start < bodyCols[row] {
+			start = bodyCols[row]
+		}
+		lines[row] = highlightSpan(lines[row], start, end)
 	}
-	return strings.Join(lines, "\n")
 }
 
-// highlightSpan paints visual columns [start, end) of a plain line in the
-// selection style, leaving the rest plain.
-func highlightSpan(plain string, start, end int) string {
-	w := ansi.StringWidth(plain)
+// highlightSpan paints visual columns [start, end) of a (possibly styled) line
+// in the selection style, preserving the styling of the text on either side.
+func highlightSpan(line string, start, end int) string {
+	w := ansi.StringWidth(line)
 	start = min(max(start, 0), w)
 	end = min(max(end, 0), w)
 	if start >= end {
-		return plain
+		return line
 	}
-	return cutCols(plain, 0, start) + selHighlightStyle.Render(cutCols(plain, start, end)) + cutCols(plain, end, w)
+	mid := selHighlightStyle.Render(ansi.Strip(ansi.Cut(line, start, end)))
+	return ansi.Cut(line, 0, start) + mid + ansi.Cut(line, end, w)
+}
+
+// renderLines renders the scrollback to display lines paired with, for each
+// line, the content column where its body begins: past the timestamp+sender
+// gutter for chat lines, 0 for notices (which are all content). The slices are
+// index-aligned, so a content row's body column is bodyCols[row].
+func (m *Model) renderLines(conv *conversation) (lines []string, bodyCols []int) {
+	w := m.contentWidth()
+	for _, msg := range conv.msgs {
+		bc := 0
+		if msg.kind == kindChat {
+			bc = gutterWidth(msg)
+		}
+		for _, ln := range strings.Split(renderMessage(msg, w), "\n") {
+			lines = append(lines, ln)
+			bodyCols = append(bodyCols, bc)
+		}
+	}
+	return lines, bodyCols
 }
 
 // cutCols returns the substring of plain text s covering visual columns
