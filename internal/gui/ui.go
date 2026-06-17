@@ -563,48 +563,53 @@ func highlightSegments(body, query string) []widget.RichTextSegment {
 	return segs
 }
 
-// messageRow renders one scrollback entry as a word-wrapped rich-text row.
+// messageRow renders one scrollback entry. Chat lines pair a styled, fixed
+// timestamp+sender gutter with a selectable body Label, so the message text can
+// be dragged to select and copied (Cmd/Ctrl+C or right-click) without dragging
+// in the gutter - selecting yields the message content only, not the sender or
+// time. Non-chat notices are a single selectable Label coloured by kind.
 func messageRow(m message) fyne.CanvasObject {
-	rt := widget.NewRichText()
-	rt.Wrapping = fyne.TextWrapWord
-
-	switch m.kind {
-	case kindChat:
-		var segs []widget.RichTextSegment
-		if m.ts != "" {
-			segs = append(segs, &widget.TextSegment{
-				Text:  m.ts + "  ",
-				Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameDisabled},
-			})
+	if m.kind != kindChat {
+		lbl := widget.NewLabel(m.body)
+		lbl.Wrapping = fyne.TextWrapWord
+		lbl.Selectable = true
+		switch m.kind {
+		case kindSystem:
+			lbl.Importance = widget.LowImportance
+			lbl.TextStyle = fyne.TextStyle{Italic: true}
+		case kindOK:
+			lbl.Importance = widget.SuccessImportance
+		case kindError:
+			lbl.Importance = widget.DangerImportance
 		}
-		senderColor := theme.ColorNameForeground
-		if m.own {
-			senderColor = theme.ColorNamePrimary
-		}
-		segs = append(segs,
-			&widget.TextSegment{
-				Text:  m.sender + "  ",
-				Style: widget.RichTextStyle{Inline: true, TextStyle: fyne.TextStyle{Bold: true}, ColorName: senderColor},
-			},
-			&widget.TextSegment{Text: m.body, Style: widget.RichTextStyle{Inline: true}},
-		)
-		rt.Segments = segs
-	case kindSystem:
-		rt.Segments = []widget.RichTextSegment{&widget.TextSegment{
-			Text:  m.body,
-			Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameDisabled, TextStyle: fyne.TextStyle{Italic: true}},
-		}}
-	case kindOK:
-		rt.Segments = []widget.RichTextSegment{&widget.TextSegment{
-			Text:  m.body,
-			Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameSuccess},
-		}}
-	case kindError:
-		rt.Segments = []widget.RichTextSegment{&widget.TextSegment{
-			Text:  m.body,
-			Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameError},
-		}}
+		return lbl
 	}
-	rt.Refresh()
-	return rt
+
+	// Gutter: dim timestamp and a bold, colour-coded sender, kept on one line so
+	// it stays a fixed prefix to the left of the wrapping body.
+	var segs []widget.RichTextSegment
+	if m.ts != "" {
+		segs = append(segs, &widget.TextSegment{
+			Text:  m.ts + "  ",
+			Style: widget.RichTextStyle{Inline: true, ColorName: theme.ColorNameDisabled},
+		})
+	}
+	senderColor := theme.ColorNameForeground
+	if m.own {
+		senderColor = theme.ColorNamePrimary
+	}
+	segs = append(segs, &widget.TextSegment{
+		Text:  m.sender + "  ",
+		Style: widget.RichTextStyle{Inline: true, TextStyle: fyne.TextStyle{Bold: true}, ColorName: senderColor},
+	})
+	gutter := widget.NewRichText(segs...)
+	gutter.Wrapping = fyne.TextWrapOff
+
+	body := widget.NewLabel(m.body)
+	body.Wrapping = fyne.TextWrapWord
+	body.Selectable = true
+
+	// Border puts the gutter at its natural width on the left and lets the body
+	// fill the rest, wrapping there; wrapped lines hang under the body's start.
+	return container.NewBorder(nil, nil, gutter, nil, body)
 }

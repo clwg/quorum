@@ -154,6 +154,14 @@ type Model struct {
 	activeKey         string
 	connState         client.ConnState
 	statusNote        string
+	// Mouse text selection over the scrollback. sel is nil when nothing is
+	// selected; while the button is held selDragging is true and the highlight
+	// tracks the cursor, and on release the span is copied. Quorum captures the
+	// mouse (to click conversations and scroll panels), so the terminal's own
+	// selection is unavailable; this draws and copies the selection itself. See
+	// selection.go.
+	sel         *selection
+	selDragging bool
 	pendingJoin       string                    // channel name a /join is waiting on a refresh for
 	pendingJoinPicker bool                      // a bare /join is waiting on a refresh to open the picker
 	users             map[string]*quorumv1.User // by ID
@@ -471,6 +479,18 @@ func (m *Model) applyOlderHistory(conv *conversation, msgs []*quorumv1.ChannelMe
 		older = append(older, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
 	}
 	conv.msgs = append(older, conv.msgs...)
+	if m.sel != nil && conv.key == m.activeKey {
+		// Older messages are prepended, so shift the selection's absolute rows
+		// down by the number of rendered lines they add, keeping it on the same
+		// text. The prepended messages are now the front of conv.msgs.
+		w := m.contentWidth()
+		added := 0
+		for _, om := range conv.msgs[:len(older)] {
+			added += strings.Count(renderMessage(om, w), "\n") + 1
+		}
+		m.sel.anchorRow += added
+		m.sel.curRow += added
+	}
 	conv.oldestID = msgs[0].GetId()
 	conv.hasMore = len(msgs) == historyPageSize
 	if conv.key == m.activeKey {
@@ -576,14 +596,28 @@ func (m *Model) renderConv(conv *conversation) string {
 	return strings.Join(rendered, "\n")
 }
 
+// viewportContent is the rendered scrollback with any active text selection
+// painted over it (body content only - the timestamp+sender gutter is excluded).
+func (m *Model) viewportContent(conv *conversation) string {
+	lines, bodyCols := m.renderLines(conv)
+	if m.sel != nil {
+		applySelectionHighlight(lines, bodyCols, *m.sel)
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (m *Model) refreshViewport() {
 	conv := m.active()
 	if conv == nil {
 		m.vp.SetContent(m.welcomeView())
 		return
 	}
-	m.vp.SetContent(m.renderConv(conv))
-	m.vp.GotoBottom()
+	m.vp.SetContent(m.viewportContent(conv))
+	// While dragging a selection, hold the scroll position; otherwise follow the
+	// live tail to the newest message.
+	if !m.selDragging {
+		m.vp.GotoBottom()
+	}
 }
 
 // refreshViewportKeepingScroll re-renders the active conversation after older

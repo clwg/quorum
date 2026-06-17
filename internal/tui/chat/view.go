@@ -11,7 +11,8 @@ import (
 // any reasonably modern terminal.
 const (
 	colAccent  = lipgloss.Color("63")  // brand blue/violet
-	colSelect  = lipgloss.Color("212") // selection pink
+	colSelect  = lipgloss.Color("212") // sidebar selection pink
+	colTextSel = lipgloss.Color("153") // scrollback text-selection highlight (light blue)
 	colDim     = lipgloss.Color("241")
 	colDimmer  = lipgloss.Color("238")
 	colErr     = lipgloss.Color("203")
@@ -395,6 +396,14 @@ func (m *Model) welcomeView() string {
 	return lipgloss.Place(m.contentWidth(), m.contentHeight(), lipgloss.Center, lipgloss.Center, block)
 }
 
+// gutterWidth is the visible width of a chat line's timestamp+sender gutter:
+// the content column where the body begins, and the hanging-indent width for the
+// message's wrapped lines. Body-only text selection uses it to exclude the
+// gutter. It must match the gutter built in renderMessage/renderSearchResult.
+func gutterWidth(msg message) int {
+	return len(msg.ts) + 1 + senderCol + 2
+}
+
 // renderMessage turns one scrollback entry into display lines, wrapped to the
 // content width. Chat lines get a dim timestamp, a colour-coded sender column,
 // and a hanging indent so wrapped bodies line up under the first word.
@@ -416,7 +425,7 @@ func renderMessage(msg message, w int) string {
 		nameStyle = selfMsgStyle
 	}
 	gutter := dimStyle.Render(msg.ts) + " " + nameStyle.Render(pad(name, senderCol)) + "  "
-	gutterW := len(msg.ts) + 1 + senderCol + 2
+	gutterW := gutterWidth(msg)
 	bodyW := max(8, w-gutterW)
 
 	bodyStyle := lipgloss.NewStyle().Width(bodyW)
@@ -448,7 +457,7 @@ func renderSearchResult(msg message, w int, query string) string {
 		nameStyle = selfMsgStyle
 	}
 	gutter := dimStyle.Render(msg.ts) + " " + nameStyle.Render(pad(name, senderCol)) + "  "
-	gutterW := len(msg.ts) + 1 + senderCol + 2
+	gutterW := gutterWidth(msg)
 	bodyW := max(8, w-gutterW)
 
 	wrapped := strings.Split(lipgloss.NewStyle().Width(bodyW).Render(highlightLike(msg.body, query)), "\n")
@@ -509,12 +518,18 @@ func (m *Model) statusBar() string {
 	}
 
 	inner := w - 2 // one background-filled column of padding on each side
-	note := m.statusNote
-	if lipgloss.Width(note) > inner-lipgloss.Width(right)-1 {
-		note = "" // too narrow to show the note without crowding the cluster
+	// While a selection drag is in progress a standout hint replaces the transient
+	// note. Both are dropped when too wide to sit beside the right-hand cluster
+	// without crowding it.
+	left := bg.Render(m.statusNote)
+	if m.selDragging {
+		left = bg.Foreground(colSelect).Bold(true).Render("SELECTING   release to copy")
 	}
-	gap := max(1, inner-lipgloss.Width(note)-lipgloss.Width(right))
-	return bg.Render(" ") + bg.Render(note) + bg.Render(strings.Repeat(" ", gap)) + right + bg.Render(" ")
+	if lipgloss.Width(left) > inner-lipgloss.Width(right)-1 {
+		left = bg.Render("")
+	}
+	gap := max(1, inner-lipgloss.Width(left)-lipgloss.Width(right))
+	return bg.Render(" ") + left + bg.Render(strings.Repeat(" ", gap)) + right + bg.Render(" ")
 }
 
 // truncate shortens s to at most n runes, appending an ellipsis when it cuts.

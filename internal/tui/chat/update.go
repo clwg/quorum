@@ -139,6 +139,13 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case actionErrMsg:
 		m.statusNote = msg.context + ": " + grpcErrText(msg.err)
 		return m, nil
+	case copyResultMsg:
+		if msg.err != nil {
+			m.statusNote = "copy failed: " + msg.err.Error()
+		} else {
+			m.statusNote = "copied message to clipboard"
+		}
+		return m, nil
 	}
 
 	if m.focus != focusInput {
@@ -150,6 +157,9 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any keystroke dismisses a lingering text selection so the highlight does
+	// not stick around once the user moves on.
+	m.clearSelection()
 	switch msg.Type {
 	case tea.KeyTab:
 		m.cycleFocus(1)
@@ -181,12 +191,29 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleMouse routes mouse events. Over the sidebar, a left click opens the
 // clicked conversation (joining a channel if needed) and the wheel scrolls
-// whichever panel the cursor is over; elsewhere the wheel scrolls the message
-// viewport regardless of which pane has focus.
+// whichever panel the cursor is over; over the message pane a left-button drag
+// selects text to copy and the wheel scrolls the viewport.
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	// Overlays own the whole screen; don't select or scroll the pane behind them.
+	if m.pw != nil || m.search != nil || m.joinP != nil {
+		return m, nil
+	}
+	// An in-progress selection drag owns motion and release wherever the cursor
+	// goes, so dragging into the sidebar or releasing there still extends and
+	// finishes the selection cleanly (rather than stranding the drag).
+	if m.selDragging {
+		switch msg.Action {
+		case tea.MouseActionMotion:
+			m.extendSelection(msg.X, msg.Y)
+			return m, nil
+		case tea.MouseActionRelease:
+			return m, m.endSelection()
+		}
+	}
 	if msg.X < sidebarWidth {
 		switch {
 		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+			m.clearSelection()
 			if key, _ := m.sidebarHit(msg.Y); key != "" {
 				return m.openConv(key)
 			}
@@ -197,12 +224,19 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// Message pane: a left press starts a text selection; the wheel scrolls.
+	if msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+		m.beginSelection(msg.X, msg.Y)
+		return m, nil
+	}
 	return m, m.scrollViewport(msg)
 }
 
 // scrollViewport forwards a scroll input to the message viewport and, when the
 // view ends up near the top, kicks off a fetch of the next older history page.
+// Scrolling also drops any text selection, whose row math is tied to the view.
 func (m *Model) scrollViewport(msg tea.Msg) tea.Cmd {
+	m.clearSelection()
 	var cmd tea.Cmd
 	m.vp, cmd = m.vp.Update(msg)
 	return tea.Batch(cmd, m.maybeLoadOlder())
@@ -324,6 +358,8 @@ func (m *Model) openConv(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) setActive(key string) {
+	m.sel = nil // a selection belongs to the conversation it was made in
+	m.selDragging = false
 	m.activeKey = key
 	if conv := m.convs[key]; conv != nil {
 		conv.unread = 0
@@ -742,6 +778,8 @@ var helpLines = []string{
 	"  click            open a channel or DM in the sidebar",
 	"  wheel over panel scroll the channels or DMs list",
 	"  PgUp/PgDn        scroll history (scroll up to load older messages)",
+	"  drag             select message text with the mouse; it copies to the",
+	"                   clipboard when you release",
 	"  Ctrl+C           quit",
 }
 
