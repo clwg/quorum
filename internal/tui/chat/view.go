@@ -11,7 +11,8 @@ import (
 // any reasonably modern terminal.
 const (
 	colAccent  = lipgloss.Color("63")  // brand blue/violet
-	colSelect  = lipgloss.Color("212") // selection pink
+	colSelect  = lipgloss.Color("212") // sidebar selection pink
+	colTextSel = lipgloss.Color("153") // scrollback text-selection highlight (light blue)
 	colDim     = lipgloss.Color("241")
 	colDimmer  = lipgloss.Color("238")
 	colErr     = lipgloss.Color("203")

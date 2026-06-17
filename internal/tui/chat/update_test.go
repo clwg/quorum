@@ -470,7 +470,7 @@ func TestMouseClickOpensConversation(t *testing.T) {
 
 // selectionFixture builds a logged-in model with one message whose body
 // "HELLOWORLD" sits at content columns 17..26 - on an 80x24 screen that is
-// screen columns 45..54 of the first viewport row (y=1).
+// visual screen columns 43..52 of the first viewport row (y=1).
 func selectionFixture(t *testing.T) *Model {
 	t.Helper()
 	m := New(&client.Client{})
@@ -494,8 +494,12 @@ func TestCellAtMapsScreenToContent(t *testing.T) {
 	m := selectionFixture(t)
 	wantRow, wantCol := -1, -1
 	for y, ln := range strings.Split(m.View(), "\n") {
-		if idx := strings.Index(ansi.Strip(ln), "HELLOWORLD"); idx >= 0 {
-			wantRow, wantCol = y, idx
+		if before, _, found := strings.Cut(ansi.Strip(ln), "HELLOWORLD"); found {
+			// The mouse reports visual (terminal-cell) columns, and the sidebar
+			// border "│" is a multibyte rune that is one cell wide, so a byte
+			// index would overstate the column. Measure the cell width of the
+			// text before the match instead.
+			wantRow, wantCol = y, ansi.StringWidth(before)
 			break
 		}
 	}
@@ -516,12 +520,15 @@ func TestCellAtMapsScreenToContent(t *testing.T) {
 func TestMouseSelectionCopiesSpan(t *testing.T) {
 	m := selectionFixture(t)
 
-	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
+	// Body 'H' is content column 17 (the gutter width); drag past the word's end.
+	bodyStart := contentLeftCol + 17
+	pastEnd := contentLeftCol + 30
+	m.handleMouse(leftMouse(tea.MouseActionPress, bodyStart, 1))
 	if !m.selDragging {
 		t.Fatal("a left press in the message pane should start a selection")
 	}
-	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
-	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, pastEnd, 1))
+	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, pastEnd, 1))
 	if cmd == nil {
 		t.Fatal("releasing a non-empty selection should return a copy command")
 	}
@@ -540,9 +547,10 @@ func TestMouseSelectionExcludesGutter(t *testing.T) {
 	m := selectionFixture(t)
 
 	// Press on the timestamp (content column 0) and drag through the body.
+	pastEnd := contentLeftCol + 30
 	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol, 1))
-	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
-	m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, pastEnd, 1))
+	m.handleMouse(leftMouse(tea.MouseActionRelease, pastEnd, 1))
 	if got := m.selectedText(); got != "HELLOWORLD" {
 		t.Fatalf("selected text = %q, want just the body %q (gutter excluded)", got, "HELLOWORLD")
 	}
@@ -571,8 +579,8 @@ func TestMouseSelectionWithinGutterCopiesNothing(t *testing.T) {
 func TestMouseSelectionReleaseOverSidebar(t *testing.T) {
 	m := selectionFixture(t)
 
-	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
-	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol+17, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, contentLeftCol+30, 1))
 	// Release with x in the sidebar region (x < sidebarWidth).
 	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 2, 1))
 	if m.selDragging {
@@ -589,16 +597,16 @@ func TestMouseClickClearsSelection(t *testing.T) {
 	m := selectionFixture(t)
 
 	// Make a selection first.
-	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
-	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
-	m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol+17, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, contentLeftCol+30, 1))
+	m.handleMouse(leftMouse(tea.MouseActionRelease, contentLeftCol+30, 1))
 	if m.sel == nil {
 		t.Fatal("expected a selection after a drag")
 	}
 
 	// A click clears it without copying.
-	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
-	if _, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 45, 1)); cmd != nil {
+	m.handleMouse(leftMouse(tea.MouseActionPress, contentLeftCol+17, 1))
+	if _, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, contentLeftCol+17, 1)); cmd != nil {
 		t.Fatal("a click should not copy")
 	}
 	if m.sel != nil {

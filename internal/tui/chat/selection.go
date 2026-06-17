@@ -12,16 +12,20 @@ import (
 // contentLeftCol and contentTopRow are the screen position of the message
 // content's top-left cell: content-text column 0 sits at screen column
 // contentLeftCol, and the viewport's first visible row is screen row
-// contentTopRow. They follow from the fixed sidebar width plus its border and
-// the panes' padding; the values are measured against the real layout and
-// pinned by TestCellAtMapsScreenToContent, which fails if the layout shifts.
+// contentTopRow. The horizontal offset is the sidebar's content width plus one
+// column for its right border plus one for the content pane's left padding -
+// the border glyph "│" is a multibyte rune but only one terminal cell wide, so
+// the offset is counted in visual cells (what a mouse reports), not bytes. The
+// values are measured against the real layout and pinned by
+// TestCellAtMapsScreenToContent, which fails if the layout shifts.
 const (
-	contentLeftCol = sidebarWidth + 4
+	contentLeftCol = sidebarWidth + 2
 	contentTopRow  = 1
 )
 
-// selHighlightStyle paints a selected span: dark text on the selection colour.
-var selHighlightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colSelect)
+// selHighlightStyle paints a selected span: dark text on a subtle light-blue
+// background (distinct from the pink sidebar selection).
+var selHighlightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colTextSel)
 
 // selection is a text span over the rendered scrollback, from the anchor cell
 // (where the drag began) to the current cell. Coordinates are content-absolute:
@@ -38,6 +42,17 @@ func (s selection) normalized() (r1, c1, r2, c2 int) {
 	if r1 > r2 || (r1 == r2 && c1 > c2) {
 		r1, c1, r2, c2 = r2, c2, r1, c1
 	}
+	return
+}
+
+// span is normalized with the bottom-right column made exclusive of the next
+// cell, so the cell under the cursor is included. Cells are the finest
+// resolution a mouse gives us, so both endpoints are inclusive: callers treat
+// [c1, c2) as a half-open column range and the c2 cell is the last one covered.
+// Without this the highlight stops one cell short of the pointer.
+func (s selection) span() (r1, c1, r2, c2 int) {
+	r1, c1, r2, c2 = s.normalized()
+	c2++
 	return
 }
 
@@ -138,7 +153,7 @@ func (m *Model) selectedText() string {
 		return ""
 	}
 	lines, bodyCols := m.renderLines(conv)
-	r1, c1, r2, c2 := m.sel.normalized()
+	r1, c1, r2, c2 := m.sel.span()
 	var out []string
 	for row := max(r1, 0); row <= r2 && row < len(lines); row++ {
 		plain := ansi.Strip(lines[row])
@@ -167,7 +182,7 @@ func (m *Model) selectedText() string {
 // row from its start column to the line end, whole rows between, and the last
 // row up to its end column.
 func applySelectionHighlight(lines []string, bodyCols []int, sel selection) {
-	r1, c1, r2, c2 := sel.normalized()
+	r1, c1, r2, c2 := sel.span()
 	for row := max(r1, 0); row <= r2 && row < len(lines); row++ {
 		start, end := 0, ansi.StringWidth(lines[row])
 		if row == r1 {
