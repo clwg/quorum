@@ -151,6 +151,13 @@ func (m *Model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
+	case tea.KeyCtrlS:
+		return m, m.toggleSelectMode()
+	case tea.KeyEsc:
+		// Esc leaves select mode; otherwise it falls through to the handlers below.
+		if m.selectMode {
+			return m, m.toggleSelectMode()
+		}
 	case tea.KeyTab:
 		m.cycleFocus(1)
 		return m, nil
@@ -198,6 +205,21 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, m.scrollViewport(msg)
+}
+
+// toggleSelectMode flips terminal text-selection mode. Quorum captures the
+// mouse (to click conversations and scroll panels), which also suppresses the
+// terminal's native click-drag selection. Turning select mode on releases the
+// mouse so the terminal can select and copy scrollback text with its own
+// shortcuts; turning it off restores mouse capture. The status bar shows when
+// it is active. The selection spans whatever is on screen (timestamps and
+// senders included), since the terminal, not Quorum, draws the highlight.
+func (m *Model) toggleSelectMode() tea.Cmd {
+	m.selectMode = !m.selectMode
+	if m.selectMode {
+		return tea.DisableMouse
+	}
+	return tea.EnableMouseCellMotion
 }
 
 // scrollViewport forwards a scroll input to the message viewport and, when the
@@ -742,6 +764,8 @@ var helpLines = []string{
 	"  click            open a channel or DM in the sidebar",
 	"  wheel over panel scroll the channels or DMs list",
 	"  PgUp/PgDn        scroll history (scroll up to load older messages)",
+	"  Ctrl+S           select mode: release the mouse so you can drag-select",
+	"                   and copy scrollback text (Esc or Ctrl+S to exit)",
 	"  Ctrl+C           quit",
 }
 

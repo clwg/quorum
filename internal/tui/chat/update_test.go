@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -464,5 +465,47 @@ func TestMouseClickOpensConversation(t *testing.T) {
 	m.handleMouse(header)
 	if m.activeKey != dmKey("c") {
 		t.Fatalf("after header click activeKey = %q, want %q", m.activeKey, dmKey("c"))
+	}
+}
+
+// TestSelectModeToggle checks that Ctrl+S toggles terminal selection mode,
+// releasing the mouse on the way in and re-enabling cell-motion capture on the
+// way out, and that Esc leaves select mode but is otherwise inert.
+func TestSelectModeToggle(t *testing.T) {
+	m := New(&client.Client{})
+	m.loggedIn = true
+
+	cmdMsg := func(cmd tea.Cmd) tea.Msg {
+		if cmd == nil {
+			return nil
+		}
+		return cmd()
+	}
+
+	// Ctrl+S enters select mode and releases the mouse.
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if !m.selectMode {
+		t.Fatal("Ctrl+S should enter select mode")
+	}
+	if !reflect.DeepEqual(cmdMsg(cmd), tea.DisableMouse()) {
+		t.Fatalf("entering select mode should disable the mouse, got %T", cmdMsg(cmd))
+	}
+
+	// Esc leaves select mode and restores mouse capture.
+	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.selectMode {
+		t.Fatal("Esc should leave select mode")
+	}
+	if !reflect.DeepEqual(cmdMsg(cmd), tea.EnableMouseCellMotion()) {
+		t.Fatalf("leaving select mode should re-enable the mouse, got %T", cmdMsg(cmd))
+	}
+
+	// Esc outside select mode neither toggles it on nor issues a mouse command.
+	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.selectMode {
+		t.Fatal("Esc outside select mode must not enter it")
+	}
+	if cmd != nil {
+		t.Fatalf("Esc outside select mode should issue no command, got %T", cmdMsg(cmd))
 	}
 }

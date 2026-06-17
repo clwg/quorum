@@ -55,6 +55,62 @@ func TestHighlightSegments(t *testing.T) {
 	}
 }
 
+// findLabel returns the first *widget.Label in obj's tree, or nil. messageRow
+// nests the selectable body Label inside a Border container, so the test reaches
+// it without depending on the container's child ordering.
+func findLabel(obj fyne.CanvasObject) *widget.Label {
+	switch o := obj.(type) {
+	case *widget.Label:
+		return o
+	case *fyne.Container:
+		for _, c := range o.Objects {
+			if l := findLabel(c); l != nil {
+				return l
+			}
+		}
+	}
+	return nil
+}
+
+// TestMessageRowBodySelectable checks a chat row exposes its body as a
+// selectable Label carrying the message text only - not the sender or
+// timestamp - so dragging to copy yields the content alone. Non-chat notices
+// are selectable too, coloured by kind.
+func TestMessageRowBodySelectable(t *testing.T) {
+	row := messageRow(chatLine("12:00", "alice", "hello there", false))
+	body := findLabel(row)
+	if body == nil {
+		t.Fatal("chat row has no Label for its body")
+	}
+	if !body.Selectable {
+		t.Error("message body Label should be selectable")
+	}
+	if body.Text != "hello there" {
+		t.Errorf("body text = %q, want the message content only (no sender/timestamp)", body.Text)
+	}
+
+	for _, tc := range []struct {
+		name string
+		msg  message
+		want widget.Importance
+	}{
+		{"system", sysLine("alice joined"), widget.LowImportance},
+		{"ok", okLine("session established"), widget.SuccessImportance},
+		{"error", errLine("send failed"), widget.DangerImportance},
+	} {
+		lbl := findLabel(messageRow(tc.msg))
+		if lbl == nil {
+			t.Fatalf("%s row has no Label", tc.name)
+		}
+		if !lbl.Selectable {
+			t.Errorf("%s line should be selectable", tc.name)
+		}
+		if lbl.Importance != tc.want {
+			t.Errorf("%s line importance = %v, want %v", tc.name, lbl.Importance, tc.want)
+		}
+	}
+}
+
 // TestChannelMembershipHidesNonMembers checks the sidebar lists only joined
 // channels while non-member channels stay reachable through the /join picker.
 func TestChannelMembershipHidesNonMembers(t *testing.T) {

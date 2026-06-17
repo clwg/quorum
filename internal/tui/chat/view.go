@@ -509,12 +509,18 @@ func (m *Model) statusBar() string {
 	}
 
 	inner := w - 2 // one background-filled column of padding on each side
-	note := m.statusNote
-	if lipgloss.Width(note) > inner-lipgloss.Width(right)-1 {
-		note = "" // too narrow to show the note without crowding the cluster
+	// In select mode a standout indicator replaces the transient note, reminding
+	// the user the mouse is released for terminal text selection. Both are dropped
+	// when too wide to sit beside the right-hand cluster without crowding it.
+	left := bg.Render(m.statusNote)
+	if m.selectMode {
+		left = bg.Foreground(colSelect).Bold(true).Render("● SELECT — drag to copy · Esc exits")
 	}
-	gap := max(1, inner-lipgloss.Width(note)-lipgloss.Width(right))
-	return bg.Render(" ") + bg.Render(note) + bg.Render(strings.Repeat(" ", gap)) + right + bg.Render(" ")
+	if lipgloss.Width(left) > inner-lipgloss.Width(right)-1 {
+		left = bg.Render("")
+	}
+	gap := max(1, inner-lipgloss.Width(left)-lipgloss.Width(right))
+	return bg.Render(" ") + left + bg.Render(strings.Repeat(" ", gap)) + right + bg.Render(" ")
 }
 
 // truncate shortens s to at most n runes, appending an ellipsis when it cuts.

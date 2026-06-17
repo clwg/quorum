@@ -154,6 +154,10 @@ type Model struct {
 	activeKey         string
 	connState         client.ConnState
 	statusNote        string
+	// selectMode is on while mouse reporting is suspended so the terminal's own
+	// click-drag text selection and copy work over the scrollback. Toggled with
+	// ctrl+s (or Esc); see toggleSelectMode and handleKey.
+	selectMode bool
 	pendingJoin       string                    // channel name a /join is waiting on a refresh for
 	pendingJoinPicker bool                      // a bare /join is waiting on a refresh to open the picker
 	users             map[string]*quorumv1.User // by ID
