@@ -154,13 +154,14 @@ type Model struct {
 	activeKey         string
 	connState         client.ConnState
 	statusNote        string
-	// Copy mode lets the user browse the scrollback with a highlighted cursor and
-	// yank one message's text to the system clipboard - Quorum captures the mouse
-	// (to click conversations and scroll panels), which pre-empts the terminal's
-	// own selection. copyMode is whether it is active; copyIdx is the highlighted
-	// message's index in the active conversation. See enter/exit/updateCopyMode.
-	copyMode bool
-	copyIdx  int
+	// Mouse text selection over the scrollback. sel is nil when nothing is
+	// selected; while the button is held selDragging is true and the highlight
+	// tracks the cursor, and on release the span is copied. Quorum captures the
+	// mouse (to click conversations and scroll panels), so the terminal's own
+	// selection is unavailable; this draws and copies the selection itself. See
+	// selection.go.
+	sel         *selection
+	selDragging bool
 	pendingJoin       string                    // channel name a /join is waiting on a refresh for
 	pendingJoinPicker bool                      // a bare /join is waiting on a refresh to open the picker
 	users             map[string]*quorumv1.User // by ID
@@ -478,9 +479,17 @@ func (m *Model) applyOlderHistory(conv *conversation, msgs []*quorumv1.ChannelMe
 		older = append(older, chatLine(fmtTime(cm), cm.GetSenderName(), cm.GetBody(), m.isSelf(cm.GetSenderName())))
 	}
 	conv.msgs = append(older, conv.msgs...)
-	if m.copyMode && conv.key == m.activeKey {
-		// Keep the highlight on the same message as the list grows upward.
-		m.copyIdx += len(older)
+	if m.sel != nil && conv.key == m.activeKey {
+		// Older messages are prepended, so shift the selection's absolute rows
+		// down by the number of rendered lines they add, keeping it on the same
+		// text. The prepended messages are now the front of conv.msgs.
+		w := m.contentWidth()
+		added := 0
+		for _, om := range conv.msgs[:len(older)] {
+			added += strings.Count(renderMessage(om, w), "\n") + 1
+		}
+		m.sel.anchorRow += added
+		m.sel.curRow += added
 	}
 	conv.oldestID = msgs[0].GetId()
 	conv.hasMore = len(msgs) == historyPageSize
@@ -577,23 +586,24 @@ func (m *Model) push(conv *conversation, msg message) {
 }
 
 // renderConv renders a conversation's scrollback into viewport content, wrapped
-// to the current content width. In copy mode every line carries a left gutter -
-// a selection bar on the highlighted message, blanks elsewhere - so the body
-// wraps two columns narrower and the selected message stands out.
+// to the current content width.
 func (m *Model) renderConv(conv *conversation) string {
 	w := m.contentWidth()
-	if m.copyMode {
-		w -= copyPrefixW
-	}
 	rendered := make([]string, len(conv.msgs))
 	for i, msg := range conv.msgs {
-		line := renderMessage(msg, w)
-		if m.copyMode {
-			line = prefixLines(line, i == m.copyIdx)
-		}
-		rendered[i] = line
+		rendered[i] = renderMessage(msg, w)
 	}
 	return strings.Join(rendered, "\n")
+}
+
+// viewportContent is the rendered scrollback with any active text selection
+// painted over it.
+func (m *Model) viewportContent(conv *conversation) string {
+	content := m.renderConv(conv)
+	if m.sel != nil {
+		content = applySelectionHighlight(content, *m.sel)
+	}
+	return content
 }
 
 func (m *Model) refreshViewport() {
@@ -602,15 +612,12 @@ func (m *Model) refreshViewport() {
 		m.vp.SetContent(m.welcomeView())
 		return
 	}
-	if m.copyMode {
-		m.clampCopyIdx()
+	m.vp.SetContent(m.viewportContent(conv))
+	// While dragging a selection, hold the scroll position; otherwise follow the
+	// live tail to the newest message.
+	if !m.selDragging {
+		m.vp.GotoBottom()
 	}
-	m.vp.SetContent(m.renderConv(conv))
-	if m.copyMode {
-		m.scrollToCopyIdx()
-		return
-	}
-	m.vp.GotoBottom()
 }
 
 // refreshViewportKeepingScroll re-renders the active conversation after older

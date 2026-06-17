@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	quorumv1 "github.com/clwg/quorum/gen/quorum/v1"
 	"github.com/clwg/quorum/internal/client"
@@ -467,86 +468,108 @@ func TestMouseClickOpensConversation(t *testing.T) {
 	}
 }
 
-// TestCopyMode covers the scrollback copy cursor: Ctrl+Y enters with the latest
-// message highlighted, up/down move the highlight (clamped at the ends and
-// tracking the right message body), Enter copies and exits, and Esc exits
-// without copying.
-func TestCopyMode(t *testing.T) {
+// selectionFixture builds a logged-in model with one message whose body
+// "HELLOWORLD" sits at content columns 17..26 - on an 80x24 screen that is
+// screen columns 45..54 of the first viewport row (y=1).
+func selectionFixture(t *testing.T) *Model {
+	t.Helper()
 	m := New(&client.Client{})
 	m.loggedIn = true
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	conv := m.ensureConv(chKey("c"), "c", "#general", false)
 	conv.historyLoaded = true
 	m.setActive(conv.key)
-	for i := range 5 {
-		m.push(conv, chatLine("12:00", "alice", fmt.Sprintf("message %d", i), false))
-	}
+	m.push(conv, chatLine("12:00", "alice", "HELLOWORLD", false))
+	return m
+}
 
-	// Ctrl+Y enters copy mode with the latest message highlighted.
-	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
-	if !m.copyMode {
-		t.Fatal("Ctrl+Y should enter copy mode")
-	}
-	if m.copyIdx != 4 {
-		t.Fatalf("copyIdx = %d, want the last message (4)", m.copyIdx)
-	}
+func leftMouse(action tea.MouseAction, x, y int) tea.MouseMsg {
+	return tea.MouseMsg{Button: tea.MouseButtonLeft, Action: action, X: x, Y: y}
+}
 
-	// Up moves the highlight toward older messages; the body tracks the cursor.
-	m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
-	m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
-	if m.copyIdx != 2 {
-		t.Fatalf("after two ups copyIdx = %d, want 2", m.copyIdx)
+// TestCellAtMapsScreenToContent pins the layout offsets: the cell where the
+// message body is drawn on screen must map back to its content row/column. If
+// the sidebar width, borders, or padding change, this fails loudly.
+func TestCellAtMapsScreenToContent(t *testing.T) {
+	m := selectionFixture(t)
+	wantRow, wantCol := -1, -1
+	for y, ln := range strings.Split(m.View(), "\n") {
+		if idx := strings.Index(ansi.Strip(ln), "HELLOWORLD"); idx >= 0 {
+			wantRow, wantCol = y, idx
+			break
+		}
 	}
-	if body, ok := m.selectedMessageBody(); !ok || body != "message 2" {
-		t.Fatalf("selected body = %q (ok=%v), want %q", body, ok, "message 2")
+	if wantRow < 0 {
+		t.Fatal("did not find the message on screen")
 	}
-
-	// Up never moves past the first message.
-	for range 10 {
-		m.updateCopyMode(tea.KeyMsg{Type: tea.KeyUp})
+	row, col, ok := m.cellAt(wantCol, wantRow)
+	if !ok {
+		t.Fatalf("cellAt(%d,%d) should map a viewport cell", wantCol, wantRow)
 	}
-	if m.copyIdx != 0 {
-		t.Fatalf("copyIdx should clamp to 0 at the top, got %d", m.copyIdx)
-	}
-
-	// Enter returns a copy command (not run here, to avoid shelling out) and
-	// leaves copy mode.
-	_, cmd, handled := m.updateCopyMode(tea.KeyMsg{Type: tea.KeyEnter})
-	if !handled {
-		t.Fatal("Enter should be handled by copy mode")
-	}
-	if cmd == nil {
-		t.Fatal("Enter should return a copy command")
-	}
-	if m.copyMode {
-		t.Fatal("Enter should leave copy mode")
-	}
-
-	// Re-enter, then Esc exits without issuing a command.
-	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
-	if _, cmd, _ := m.updateCopyMode(tea.KeyMsg{Type: tea.KeyEsc}); cmd != nil {
-		t.Fatal("Esc should issue no command")
-	}
-	if m.copyMode {
-		t.Fatal("Esc should leave copy mode")
+	if row != 0 || col != 17 {
+		t.Fatalf("cellAt(%d,%d) = (row %d, col %d), want content (0, 17)", wantCol, wantRow, row, col)
 	}
 }
 
-// TestCopyModeEmptyConversation checks Ctrl+Y is a no-op with a hint when there
-// is nothing to copy, rather than entering an empty copy mode.
-func TestCopyModeEmptyConversation(t *testing.T) {
-	m := New(&client.Client{})
-	m.loggedIn = true
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	conv := m.ensureConv(chKey("c"), "c", "#general", false)
-	conv.historyLoaded = true
-	m.setActive(conv.key)
+// TestMouseSelectionCopiesSpan covers a left-button drag over the message pane:
+// it selects the dragged span and returns a clipboard command on release.
+func TestMouseSelectionCopiesSpan(t *testing.T) {
+	m := selectionFixture(t)
 
-	m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlY})
-	if m.copyMode {
-		t.Fatal("copy mode should not open with no messages")
+	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
+	if !m.selDragging {
+		t.Fatal("a left press in the message pane should start a selection")
 	}
-	if m.statusNote == "" {
-		t.Fatal("an empty copy attempt should leave a hint")
+	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
+	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	if cmd == nil {
+		t.Fatal("releasing a non-empty selection should return a copy command")
+	}
+	if m.selDragging {
+		t.Fatal("release should end the drag")
+	}
+	if got := m.selectedText(); got != "HELLOWORLD" {
+		t.Fatalf("selected text = %q, want %q", got, "HELLOWORLD")
+	}
+}
+
+// TestMouseSelectionReleaseOverSidebar guards a drag that ends outside the
+// message pane: releasing over the sidebar must still finish the selection
+// rather than stranding the drag.
+func TestMouseSelectionReleaseOverSidebar(t *testing.T) {
+	m := selectionFixture(t)
+
+	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
+	// Release with x in the sidebar region (x < sidebarWidth).
+	_, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 2, 1))
+	if m.selDragging {
+		t.Fatal("releasing over the sidebar should still end the drag")
+	}
+	if cmd == nil {
+		t.Fatal("the selection should still be copied on release")
+	}
+}
+
+// TestMouseClickClearsSelection checks that a plain click (press then release
+// with no drag) copies nothing and dismisses any existing selection.
+func TestMouseClickClearsSelection(t *testing.T) {
+	m := selectionFixture(t)
+
+	// Make a selection first.
+	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
+	m.handleMouse(leftMouse(tea.MouseActionMotion, 55, 1))
+	m.handleMouse(leftMouse(tea.MouseActionRelease, 55, 1))
+	if m.sel == nil {
+		t.Fatal("expected a selection after a drag")
+	}
+
+	// A click clears it without copying.
+	m.handleMouse(leftMouse(tea.MouseActionPress, 45, 1))
+	if _, cmd := m.handleMouse(leftMouse(tea.MouseActionRelease, 45, 1)); cmd != nil {
+		t.Fatal("a click should not copy")
+	}
+	if m.sel != nil {
+		t.Fatal("a click should clear the selection")
 	}
 }
